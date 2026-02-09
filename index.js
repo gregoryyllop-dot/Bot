@@ -29,7 +29,7 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- COMMANDE : !STAFF / !HELP (PANEL DE MODÉRATION) ---
+    // --- COMMANDE : !STAFF / !HELP ---
     if (command === 'staff' || command === 'help') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
             return message.reply("⚠️ Accès réservé au personnel modérateur.");
@@ -40,87 +40,98 @@ client.on('messageCreate', async (message) => {
             title: '🛠️ GUIDE MODÉRATION - SEIMI BOT',
             description: 'Liste des commandes disponibles pour le personnel.',
             fields: [
-                {
-                    name: '🧹 !clear [1-100]',
-                    value: 'Nettoie les messages récents du salon.',
-                },
-                {
-                    name: '👞 !kick @membre',
-                    value: 'Expulse un utilisateur.',
-                },
-                {
-                    name: '🚫 !ban @membre',
-                    value: 'Bannit un membre (Nécessite une confirmation par "oui").',
-                },
-                {
-                    name: '🛡️ Sécurité',
-                    value: 'Bloque automatiquement l\'auto-bannissement des modérateurs.',
-                },
+                { name: '🧹 !clear [1-100]', value: 'Nettoie les messages récents.' },
+                { name: '👞 !kick @membre', value: 'Expulse un utilisateur.' },
+                { name: '🚫 !ban @membre', value: 'Bannit un membre (confirmation requise).' },
+                { name: '🤐 !mute @membre [temps]', value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' },
+                { name: '🔊 !unmute @membre', value: 'Retire l\'exclusion d\'un membre.' },
             ],
             footer: { text: 'Système Chroniques de la Zone 5' },
             timestamp: new Date(),
         };
-
         return message.channel.send({ embeds: [staffEmbed] });
+    }
+
+    // --- COMMANDE : !MUTE (Timeout) ---
+    if (command === 'mute') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
+
+        const member = message.mentions.members.first();
+        const duration = args[1]; // Ex: 1m, 5m, 10m, 30m, 1h
+
+        if (!member) return message.reply("Mentionne un membre à réduire au silence.");
+        if (member.id === message.author.id) return message.reply("Tu ne peux pas te mute toi-même.");
+
+        let time = 0;
+        switch (duration) {
+            case '1m': time = 60 * 1000; break;
+            case '5m': time = 5 * 60 * 1000; break;
+            case '10m': time = 10 * 60 * 1000; break;
+            case '30m': time = 30 * 60 * 1000; break;
+            case '1h': time = 60 * 60 * 1000; break;
+            default: return message.reply("Précise une durée valide : `1m`, `5m`, `10m`, `30m` ou `1h`.");
+        }
+
+        try {
+            await member.timeout(time, "Mute via commande !mute");
+            message.channel.send(`🤐 **${member.user.tag}** a été réduit au silence pour **${duration}**.`);
+        } catch (err) {
+            message.reply("❌ Je n'ai pas les permissions de mute ce membre.");
+        }
+    }
+
+    // --- COMMANDE : !UNMUTE / !DEMUTE ---
+    if (command === 'unmute' || command === 'demute') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
+
+        const member = message.mentions.members.first();
+        if (!member) return message.reply("Mentionne un membre à démuter.");
+
+        try {
+            await member.timeout(null);
+            message.channel.send(`🔊 **${member.user.tag}** peut à nouveau parler.`);
+        } catch (err) {
+            message.reply("❌ Impossible de retirer le mute de ce membre.");
+        }
     }
 
     // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-        
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) {
-            return message.reply("Précise un chiffre entre 1 et 100.");
-        }
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Précise un chiffre entre 1 et 100.");
         
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
-            message.channel.send(`✅ **${deleted.size}** messages supprimés.`)
-                .then(m => setTimeout(() => m.delete(), 3000));
-        } catch (err) {
-            message.reply("❌ Impossible de supprimer les messages de plus de 14 jours.");
-        }
+            message.channel.send(`✅ **${deleted.size}** messages supprimés.`).then(m => setTimeout(() => m.delete(), 3000));
+        } catch (err) { message.reply("❌ Erreur lors de la suppression."); }
     }
 
     // --- COMMANDE : !KICK ---
     if (command === 'kick') {
         if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return;
         const member = message.mentions.members.first();
-        if (!member) return message.reply("Mentionne un membre à expulser.");
-        if (member.id === message.author.id) return message.reply("🛡️ Tu ne peux pas t'expulser toi-même.");
-
+        if (!member || member.id === message.author.id) return;
         await member.kick();
         message.reply(`👞 **${member.user.tag}** a été expulsé.`);
     }
 
-    // --- COMMANDE : !BAN (AVEC CONFIRMATION) ---
+    // --- COMMANDE : !BAN ---
     if (command === 'ban') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
-        
         const member = message.mentions.members.first();
-        if (!member) return message.reply("Mentionne un membre à bannir.");
+        if (!member || member.id === message.author.id) return;
 
-        if (member.id === message.author.id) {
-            return message.reply("🛡️ **Seimi :** Un modérateur ne peut pas s'auto-bannir !");
-        }
-
-        message.reply(`⚠️ Confirme-tu le bannissement de **${member.user.tag}** ? Réponds par **oui** ou **non**.`);
-
+        message.reply(`⚠️ Confirme le bannissement de **${member.user.tag}** ? (oui/non)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
         
         try {
-            const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000, errors: ['time'] });
-            const response = collected.first().content.toLowerCase();
-
-            if (response === 'oui') {
+            const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
+            if (collected.first().content.toLowerCase() === 'oui') {
                 await member.ban();
                 message.channel.send(`🚫 **${member.user.tag}** a été banni.`);
-            } else {
-                message.channel.send("✅ Bannissement annulé.");
-            }
-        } catch (err) {
-            message.channel.send("⌛ Temps écoulé, action annulée.");
-        }
+            } else { message.channel.send("✅ Annulé."); }
+        } catch (err) { message.channel.send("⌛ Expiré."); }
     }
 });
 
