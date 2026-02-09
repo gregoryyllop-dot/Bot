@@ -1,10 +1,10 @@
-const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const express = require('express');
 
 // --- 1. CONFIGURATION DU SERVEUR POUR RENDER ---
 const app = express();
 const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Seimi est en ligne et protège la zone !'));
+app.get('/', (req, res) => res.send('Seimi est opérationnel.'));
 app.listen(port, '0.0.0.0', () => console.log(`Serveur actif sur le port ${port}`));
 
 // --- 2. CONFIGURATION DU BOT SEIMI ---
@@ -29,23 +29,56 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- COMMANDE : !CLEAR (Jusqu'à 100 messages) ---
+    // --- COMMANDE : !STAFF / !HELP (PANEL DE MODÉRATION) ---
+    if (command === 'staff' || command === 'help') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+            return message.reply("⚠️ Accès réservé au personnel modérateur.");
+        }
+
+        const staffEmbed = {
+            color: 0x0099ff,
+            title: '🛠️ GUIDE MODÉRATION - SEIMI BOT',
+            description: 'Liste des commandes disponibles pour le personnel.',
+            fields: [
+                {
+                    name: '🧹 !clear [1-100]',
+                    value: 'Nettoie les messages récents du salon.',
+                },
+                {
+                    name: '👞 !kick @membre',
+                    value: 'Expulse un utilisateur.',
+                },
+                {
+                    name: '🚫 !ban @membre',
+                    value: 'Bannit un membre (Nécessite une confirmation par "oui").',
+                },
+                {
+                    name: '🛡️ Sécurité',
+                    value: 'Bloque automatiquement l\'auto-bannissement des modérateurs.',
+                },
+            ],
+            footer: { text: 'Système Chroniques de la Zone 5' },
+            timestamp: new Date(),
+        };
+
+        return message.channel.send({ embeds: [staffEmbed] });
+    }
+
+    // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         
         let amount = parseInt(args[0]);
-        // Correction de la limite : Discord accepte 100 maximum
         if (isNaN(amount) || amount < 1 || amount > 100) {
             return message.reply("Précise un chiffre entre 1 et 100.");
         }
         
         try {
-            // Suppression directe sans le "+1" pour éviter l'erreur des 101 messages
             const deleted = await message.channel.bulkDelete(amount, true);
-            message.channel.send(`✅ **${deleted.size}** messages supprimés par Seimi.`)
+            message.channel.send(`✅ **${deleted.size}** messages supprimés.`)
                 .then(m => setTimeout(() => m.delete(), 3000));
         } catch (err) {
-            message.reply("❌ Impossible de supprimer des messages de plus de 14 jours.");
+            message.reply("❌ Impossible de supprimer les messages de plus de 14 jours.");
         }
     }
 
@@ -60,14 +93,13 @@ client.on('messageCreate', async (message) => {
         message.reply(`👞 **${member.user.tag}** a été expulsé.`);
     }
 
-    // --- COMMANDE : !BAN (AVEC SÉCURITÉ ET CONFIRMATION) ---
+    // --- COMMANDE : !BAN (AVEC CONFIRMATION) ---
     if (command === 'ban') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         
         const member = message.mentions.members.first();
         if (!member) return message.reply("Mentionne un membre à bannir.");
 
-        // SÉCURITÉ : Un membre ne peut pas se bannir lui-même [cite: 2026-01-22]
         if (member.id === message.author.id) {
             return message.reply("🛡️ **Seimi :** Un modérateur ne peut pas s'auto-bannir !");
         }
@@ -82,7 +114,7 @@ client.on('messageCreate', async (message) => {
 
             if (response === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** a été banni par Seimi.`);
+                message.channel.send(`🚫 **${member.user.tag}** a été banni.`);
             } else {
                 message.channel.send("✅ Bannissement annulé.");
             }
