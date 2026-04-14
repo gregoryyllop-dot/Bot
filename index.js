@@ -52,16 +52,13 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ embeds: [staffEmbed] });
     }
 
-    // --- COMMANDE : !MUTE (Timeout) ---
+    // --- COMMANDE : !MUTE ---
     if (command === 'mute') {
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
-
         const member = message.mentions.members.first();
         const duration = args[1];
-
         if (!member) return message.reply("Mentionne un membre à réduire au silence.");
-        if (member.id === message.author.id) return message.reply("Tu ne peux pas te mute toi-même.");
-
+        
         let time = 0;
         switch (duration) {
             case '1m': time = 60 * 1000; break;
@@ -76,22 +73,7 @@ client.on('messageCreate', async (message) => {
             await member.timeout(time, "Mute via commande !mute");
             message.channel.send(`🤐 **${member.user.tag}** a été réduit au silence pour **${duration}**.`);
         } catch (err) {
-            message.reply("❌ Je n'ai pas les permissions de mute ce membre.");
-        }
-    }
-
-    // --- COMMANDE : !UNMUTE / !DEMUTE ---
-    if (command === 'unmute' || command === 'demute') {
-        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
-
-        const member = message.mentions.members.first();
-        if (!member) return message.reply("Mentionne un membre à démuter.");
-
-        try {
-            await member.timeout(null);
-            message.channel.send(`🔊 **${member.user.tag}** peut à nouveau parler.`);
-        } catch (err) {
-            message.reply("❌ Impossible de retirer le mute de ce membre.");
+            message.reply("❌ Impossible de mute ce membre.");
         }
     }
 
@@ -99,21 +81,11 @@ client.on('messageCreate', async (message) => {
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Précise un chiffre entre 1 et 100.");
-        
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Chiffre entre 1 et 100, Einstein.");
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
             message.channel.send(`✅ **${deleted.size}** messages supprimés.`).then(m => setTimeout(() => m.delete(), 3000));
-        } catch (err) { message.reply("❌ Erreur lors de la suppression."); }
-    }
-
-    // --- COMMANDE : !KICK ---
-    if (command === 'kick') {
-        if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return;
-        const member = message.mentions.members.first();
-        if (!member || member.id === message.author.id) return;
-        await member.kick();
-        message.reply(`👞 **${member.user.tag}** a été expulsé.`);
+        } catch (err) { message.reply("❌ Erreur de suppression."); }
     }
 
     // --- COMMANDE : !BAN ---
@@ -121,23 +93,42 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
         
-        if (!member) return message.reply("Mentionne un membre à bannir.");
+        if (!member) return message.reply("Mentionne quelqu'un, je ne devine pas les noms.");
 
-        // Protection spécifique pour sseikaa
-        if (member.user.username.toLowerCase() === 'sseikaa') {
-            const insultes = [
-                "Tu te prends pour qui ? Jamais je ne bannirai sseikaa, dégage de là.",
-                "Mdr, t'as cru que j'obéissais à un rigolo comme toi ? Laisse sseikaa tranquille.",
-                "Supprime ton message avant que ce soit moi qui te ban, pauvre type.",
-                "Bannir l'élite ? Retourne modérer ton serveur de bac à sable.",
-                "T'as pas assez de muscles pour t'en prendre à sseikaa, minable."
+        // --- PROTECTION POUR SSEIKAA ET LINQUI0162 ---
+        const vips = ['sseikaa', 'linqui0162'];
+        if (vips.includes(member.user.username.toLowerCase())) {
+            const repliquesVip = [
+                "Tu te prends pour qui, espèce de déchet ? Jamais je ne toucherai à l'élite.",
+                "Mdr, regarde-toi essayer de ban un dieu alors que t'es qu'une merde. Dégage.",
+                "Espèce de sous-être, pose encore tes mains sales sur cette commande et c'est toi que j'efface.",
+                "T'as cru que j'obéissais aux ordres d'un moins que rien ? Laisse tomber, t'es pathétique.",
+                "Bannir cette personne ? On voit que ton cerveau tourne à deux à l'heure. Barre-toi.",
+                "T'as pas assez de neurones pour t'en prendre à eux. Retourne jouer aux billes.",
+                "C'est sseikaa et linqui ici, pas tes potes du quartier. Un peu de respect, larbin.",
+                "Ton audace me dégoûte. Essaie encore et je formate ton compte, espèce de clown.",
+                "Si l'incompétence avait un visage, ce serait le tien en train d'essayer de ban ces légendes.",
+                "Permission refusée. Cause : T'es une sous-merce et ils sont intouchables."
             ];
-            const randomInsult = insultes[Math.floor(Math.random() * insultes.length)];
-            return message.reply(`💢 **${randomInsult}**`);
+            return message.reply(`💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
         }
 
-        if (member.id === message.author.id) return message.reply("Tu ne peux pas te bannir toi-même.");
+        // --- CAS DE L'AUTO-BAN (L'UTILISATEUR EST UN ABRUTI) ---
+        if (member.id === message.author.id) {
+            const repliquesCon = [
+                "T'es vraiment fini à la pisse... Tu crois que je vais t'aider à te ban ? Abruti.",
+                "Record du monde de stupidité battu. Pourquoi tu forces sur la commande, espèce de clown ?",
+                "T'as vraiment pas inventé l'eau chaude. On ne peut pas se ban soi-même, sombre crétin.",
+                "Mais t'es complètement con ou quoi ? Barre-toi du serv tout seul au lieu de spammer, débile.",
+                "L'intelligence te poursuit, mais t'es manifestement plus rapide. Quel genre d'abruti s'auto-ban ?",
+                "Non mais sérieux, t'es né avec un cerveau en option ? Arrête tes conneries, tu me fais pitié.",
+                "Même un bot buggé est plus intelligent que toi. T'es vraiment l'élite des abrutis.",
+                "C'est grave à ce niveau-là... demande à un vrai modo de te sortir, puisque t'es trop bête pour le faire seul."
+            ];
+            return message.reply(`🤡 **${repliquesCon[Math.floor(Math.random() * repliquesCon.length)]}**`);
+        }
 
+        // --- PROCÉDURE NORMALE ---
         message.reply(`⚠️ Confirme le bannissement de **${member.user.tag}** ? (oui/non)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
         
@@ -145,9 +136,13 @@ client.on('messageCreate', async (message) => {
             const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
             if (collected.first().content.toLowerCase() === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** a été banni.`);
-            } else { message.channel.send("✅ Annulé."); }
-        } catch (err) { message.channel.send("⌛ Expiré."); }
+                message.channel.send(`🚫 **${member.user.tag}** a été éjecté proprement.`);
+            } else { 
+                message.channel.send("✅ Annulé. T'as eu de la chance, le modérateur a eu pitié."); 
+            }
+        } catch (err) { 
+            message.channel.send("⌛ Trop lent. Comme ta réflexion."); 
+        }
     }
 });
 
