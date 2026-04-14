@@ -57,7 +57,7 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
 
         const member = message.mentions.members.first();
-        const duration = args[1]; // Ex: 1m, 5m, 10m, 30m, 1h
+        const duration = args[1];
 
         if (!member) return message.reply("Mentionne un membre à réduire au silence.");
         if (member.id === message.author.id) return message.reply("Tu ne peux pas te mute toi-même.");
@@ -120,7 +120,23 @@ client.on('messageCreate', async (message) => {
     if (command === 'ban') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
-        if (!member || member.id === message.author.id) return;
+        
+        if (!member) return message.reply("Mentionne un membre à bannir.");
+
+        // Protection spécifique pour sseikaa
+        if (member.user.username.toLowerCase() === 'sseikaa') {
+            const insultes = [
+                "Tu te prends pour qui ? Jamais je ne bannirai sseikaa, dégage de là.",
+                "Mdr, t'as cru que j'obéissais à un rigolo comme toi ? Laisse sseikaa tranquille.",
+                "Supprime ton message avant que ce soit moi qui te ban, pauvre type.",
+                "Bannir l'élite ? Retourne modérer ton serveur de bac à sable.",
+                "T'as pas assez de muscles pour t'en prendre à sseikaa, minable."
+            ];
+            const randomInsult = insultes[Math.floor(Math.random() * insultes.length)];
+            return message.reply(`💢 **${randomInsult}**`);
+        }
+
+        if (member.id === message.author.id) return message.reply("Tu ne peux pas te bannir toi-même.");
 
         message.reply(`⚠️ Confirme le bannissement de **${member.user.tag}** ? (oui/non)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
