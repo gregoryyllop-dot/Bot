@@ -55,7 +55,6 @@ client.on('guildMemberAdd', async (member) => {
 
 // --- GESTION DES INTERACTIONS (BOUTONS) ---
 client.on('interactionCreate', async (interaction) => {
-    // Si ce n'est pas un bouton, on ignore
     if (!interaction.isButton()) return;
 
     // Gestion du bouton des CODES ROBLOX
@@ -72,7 +71,6 @@ client.on('interactionCreate', async (interaction) => {
             timestamp: new Date()
         };
 
-        // ENVOI ÉPHÉMÈRE : Seul l'utilisateur voit ce message dans le salon !
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
     }
 });
@@ -87,7 +85,6 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
 
     // --- COMMANDE : !SETUPCODES (Pour l'administrateur) ---
-    // Tu tapes cette commande UNE SEULE FOIS dans ton salon secret pour mettre le bouton permanent
     if (command === 'setupcodes') {
         try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
@@ -137,7 +134,7 @@ client.on('messageCreate', async (message) => {
         const mainRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('cfg_prefix').setLabel('Modifier le Préfixe').setStyle(ButtonStyle.Primary).setEmoji('📌'),
             new ButtonBuilder().setCustomId('cfg_role_btn').setLabel('Modifier le Rôle').setStyle(ButtonStyle.Success).setEmoji('👋'),
-            new ButtonBuilder().setCustomId('cfg_staff_help').setLabel('Guide Modération').setStyle(ButtonStyle.Secondary).setEmoji('🛠️'),
+            new ButtonBuilder().setCustomId('cfg_staff_help').setLabel('Modération').setStyle(ButtonStyle.Secondary).setEmoji('🛠️'),
             new ButtonBuilder().setCustomId('cfg_close').setLabel('Fermer').setStyle(ButtonStyle.Danger).setEmoji('🔒')
         );
 
@@ -146,9 +143,10 @@ client.on('messageCreate', async (message) => {
 
         collector.on('collect', async (interaction) => {
             if (interaction.user.id !== message.author.id) return interaction.reply({ content: "❌ Ce n'est pas ton panneau.", ephemeral: true });
+            
             if (interaction.customId === 'cfg_close') {
                 collector.stop();
-                return interaction.update({ content: '🔒 Panneau fermé.', embeds: [], components: [] });
+                return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
             }
             if (interaction.customId === 'cfg_staff_help') {
                 const staffEmbed = {
@@ -164,44 +162,24 @@ client.on('messageCreate', async (message) => {
                 return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
             }
             if (interaction.customId === 'cfg_prefix') {
-                await interaction.update({ content: '✍️ **Entre le nouveau préfixe :**', embeds: [], components: [] });
+                await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', embeds: [], components: [] });
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 30000 });
                 msgCollector.on('collect', async (m) => {
                     serverConfig.prefix = m.content.trim().split(/ +/)[0];
                     try { await m.delete(); } catch(e){}
-                    await panelMessage.edit({ content: `✅ Mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
+                    await panelMessage.edit({ content: `✅ Préfixe mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
                 });
             }
             if (interaction.customId === 'cfg_role_btn') {
                 const roleMenuRow = new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId('cfg_role_select').setPlaceholder('Sélectionne un rôle...').setMaxValues(1));
-                await interaction.update({ content: '👋 **Étape 2 : Choisis le rôle :**', embeds: [], components: [roleMenuRow] });
+                await interaction.update({ content: '👋 **Étape 2 : Choisis le rôle d\'arrivée dans le menu :**', embeds: [], components: [roleMenuRow] });
             }
             if (interaction.customId === 'cfg_role_select') {
                 serverConfig.welcomeRole = interaction.values[0];
-                await interaction.update({ content: `✅ Rôle mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
+                await interaction.update({ content: `✅ Rôle de bienvenue mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
             }
         });
         return;
-    }
-
-    // --- COMMANDE : !STAFF / !HELP ---
-    if (command === 'staff' || command === 'help') {
-        try { await message.delete(); } catch (err) {}
-        if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-
-        const staffEmbed = {
-            color: 0x0099ff,
-            title: '🛠️ GUIDE MODÉRATION',
-            fields: [
-                { name: `🧹 ${currentPrefix}clear [1-100]`, value: 'Nettoie les messages.' },
-                { name: `👞 ${currentPrefix}kick @membre`, value: 'Expulse un utilisateur.' },
-                { name: `🚫 ${currentPrefix}ban @membre`, value: 'Bannit un membre.' },
-                { name: `🤐 ${currentPrefix}mute @membre [temps]`, value: 'Exclut temporairement.' },
-                { name: `⚙️ ${currentPrefix}config`, value: 'Ouvre le panneau de configuration.' },
-                { name: `🎁 ${currentPrefix}setupcodes`, value: 'Installe le bouton permanent des codes Roblox.' }
-            ]
-        };
-        return message.channel.send({ embeds: [staffEmbed] }).then(m => setTimeout(() => m.delete(), 30000));
     }
 
     // --- COMMANDE : !MUTE ---
@@ -210,7 +188,7 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
-        if (!member) return message.reply("Mentionne quelqu'un.").then(m => setTimeout(() => m.delete(), 5000));
+        if (!member) return message.reply("Veuillez mentionner un membre.").then(m => setTimeout(() => m.delete(), 5000));
         
         let time = 0;
         switch (duration) {
@@ -219,12 +197,12 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Durée invalide : 1m, 5m, 10m, 30m, 1h.").then(m => setTimeout(() => m.delete(), 5000));
+            default: return message.reply("Durée invalide : 1m, 5m, 10m, 30m ou 1h.").then(m => setTimeout(() => m.delete(), 5000));
         }
         try {
             await member.timeout(time, "Mute via commande");
             message.channel.send(`🤐 **${member.user.tag}** a été exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
-        } catch (err) { message.reply("Erreur de hiérarchie.").then(m => setTimeout(() => m.delete(), 5000)); }
+        } catch (err) { message.reply("Erreur : privilèges insuffisants.").then(m => setTimeout(() => m.delete(), 5000)); }
     }
 
     // --- COMMANDE : !CLEAR ---
@@ -232,7 +210,7 @@ client.on('messageCreate', async (message) => {
         try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
             message.channel.send(`✅ **${deleted.size}** messages supprimés.`).then(m => setTimeout(() => m.delete(), 3000));
