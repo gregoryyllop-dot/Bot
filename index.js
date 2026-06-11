@@ -1,10 +1,28 @@
-const { Client, GatewayIntentBits, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    PermissionFlagsBits, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    ComponentType, 
+    RoleSelectMenuBuilder 
+} = require('discord.js');
 const express = require('express');
+const path = require('path');
 
-// --- 1. CONFIGURATION DU SERVEUR POUR RENDER ---
+// --- 1. CONFIGURATION DU SERVEUR ET SITE WEB POUR RENDER ---
 const app = express();
 const port = process.env.PORT || 10000;
-app.get('/', (req, res) => res.send('Seimi est opérationnel.'));
+
+// Permet de lire les fichiers du dossier "public" (HTML, CSS, images)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Envoie le site vitrine quand on visite l'URL Render
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(port, '0.0.0.0', () => console.log(`Serveur actif sur le port ${port}`));
 
 // --- 2. CONFIGURATION DU BOT SEIMI ---
@@ -29,11 +47,11 @@ client.on('ready', () => {
 
 // --- ENREGISTREMENT D'UN NOUVEAU MEMBRE ---
 client.on('guildMemberAdd', async (member) => {
-    const roleName = serverConfig.welcomeRole; 
-    const role = member.guild.roles.cache.find(r => r.name === roleName || r.id === roleName);
+    const roleNameOrId = serverConfig.welcomeRole; 
+    const role = member.guild.roles.cache.get(roleNameOrId) || member.guild.roles.cache.find(r => r.name === roleNameOrId);
 
     if (!role) {
-        return console.log(`[ERREUR BIENVENUE] Le rôle "${roleName}" est introuvable.`);
+        return console.log(`[ERREUR BIENVENUE] Le rôle "${roleNameOrId}" est introuvable.`);
     }
 
     try {
@@ -59,31 +77,36 @@ client.on('messageCreate', async (message) => {
             return message.reply("⚠️ Tu dois disposer de la permission `Gérer le serveur` pour modifier ma configuration.");
         }
 
+        const getRoleDisplay = () => {
+            const role = message.guild.roles.cache.get(serverConfig.welcomeRole);
+            return role ? `<@&${role.id}>` : `\`${serverConfig.welcomeRole}\``;
+        };
+
         const generateConfigEmbed = () => {
             return {
                 color: 0x5865F2,
                 title: '⚙️ PANNEAU DE CONFIGURATION - SEIMI',
-                description: 'Clique sur les boutons ci-dessous pour modifier la configuration du bot comme sur DraftBot.',
+                description: 'Modifie les options système et accède aux outils de gestion du personnel.',
                 fields: [
                     { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
-                    { name: '👋 Rôle d\'Arrivée', value: `\`${serverConfig.welcomeRole}\``, inline: true }
+                    { name: '👋 Rôle d\'Arrivée', value: getRoleDisplay(), inline: true }
                 ],
                 footer: { text: 'Session active pendant 2 minutes' },
                 timestamp: new Date()
             };
         };
 
-        const row = new ActionRowBuilder().addComponents(
+        const mainRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('cfg_prefix')
                 .setLabel('Modifier le Préfixe')
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('📌'),
             new ButtonBuilder()
-                .setCustomId('cfg_role')
-                .setLabel('Modifier le Rôle d\'Arrivée')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('👋'),
+                .setCustomId('cfg_staff_help')
+                .setLabel('Guide Modération')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🛠️'),
             new ButtonBuilder()
                 .setCustomId('cfg_close')
                 .setLabel('Fermer')
@@ -91,28 +114,51 @@ client.on('messageCreate', async (message) => {
                 .setEmoji('🔒')
         );
 
+        const roleMenuRow = new ActionRowBuilder().addComponents(
+            new RoleSelectMenuBuilder()
+                .setCustomId('cfg_role_select')
+                .setPlaceholder('Sélectionner le rôle d\'arrivée...')
+                .setMaxValues(1)
+        );
+
         const panelMessage = await message.channel.send({
             embeds: [generateConfigEmbed()],
-            components: [row]
+            components: [roleMenuRow, mainRow]
         });
 
-        const buttonCollector = panelMessage.createMessageComponentCollector({
-            componentType: ComponentType.Button,
+        const collector = panelMessage.createMessageComponentCollector({
             time: 120000
         });
 
-        buttonCollector.on('collect', async (interaction) => {
+        collector.on('collect', async (interaction) => {
             if (interaction.user.id !== message.author.id) {
                 return interaction.reply({ content: "❌ Ce n'est pas ton panneau de configuration.", ephemeral: true });
             }
 
             if (interaction.customId === 'cfg_close') {
-                buttonCollector.stop();
+                collector.stop();
                 return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
             }
 
+            if (interaction.customId === 'cfg_staff_help') {
+                const staffEmbed = {
+                    color: 0x0099ff,
+                    title: '🛠️ GUIDE MODÉRATION - SEIMI BOT',
+                    description: `Liste des commandes de modération.`,
+                    fields: [
+                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Nettoie les messages récents.' },
+                        { name: `👞 ${serverConfig.prefix}kick @membre`, value: 'Expulse un utilisateur.' },
+                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit un membre (confirmation requise).' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' }
+                    ],
+                    footer: { text: 'Système Chroniques de la Zone 5' },
+                    timestamp: new Date(),
+                };
+                return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
+            }
+
             if (interaction.customId === 'cfg_prefix') {
-                await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', components: [] });
+                await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', embeds: [], components: [] });
                 
                 const filter = m => m.author.id === message.author.id;
                 const msgCollector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
@@ -122,27 +168,23 @@ client.on('messageCreate', async (message) => {
                     serverConfig.prefix = newPrefix;
                     try { await m.delete(); } catch(e){}
                     
-                    await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [row] });
+                    await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [roleMenuRow, mainRow] });
                 });
             }
 
-            if (interaction.customId === 'cfg_role') {
-                await interaction.update({ content: '✍️ **Entre le NOM exact du rôle d\'arrivée (Ex: Membre) :**', components: [] });
+            if (interaction.customId === 'cfg_role_select') {
+                const selectedRoleId = interaction.values[0];
+                serverConfig.welcomeRole = selectedRoleId;
                 
-                const filter = m => m.author.id === message.author.id;
-                const msgCollector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
-
-                msgCollector.on('collect', async (m) => {
-                    const newRole = m.content.trim();
-                    serverConfig.welcomeRole = newRole;
-                    try { await m.delete(); } catch(e){}
-                    
-                    await panelMessage.edit({ content: `✅ Rôle de bienvenue mis à jour !`, embeds: [generateConfigEmbed()], components: [row] });
+                await interaction.update({
+                    content: `✅ Rôle de bienvenue mis à jour !`,
+                    embeds: [generateConfigEmbed()],
+                    components: [roleMenuRow, mainRow]
                 });
             }
         });
 
-        buttonCollector.on('end', async () => {
+        collector.on('end', async () => {
             try {
                 await panelMessage.edit({ components: [] });
             } catch (err) {}
