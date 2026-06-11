@@ -86,7 +86,7 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !SETUPCODES (Pour l'administrateur) ---
     if (command === 'setupcodes') {
-        try { await message.delete(); } catch (err) {}
+        try { await message.delete(); } catch (err) {} // Supprime le message !setupcodes de l'admin
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const setupEmbed = {
@@ -109,7 +109,7 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !CONFIG ---
     if (command === 'config') {
-        try { await message.delete(); } catch (err) {}
+        try { await message.delete(); } catch (err) {} // Supprime le message !config de l'admin
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const getRoleDisplay = () => {
@@ -126,7 +126,7 @@ client.on('messageCreate', async (message) => {
                     { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
                     { name: '👋 Rôle d\'Arrivée', value: getRoleDisplay(), inline: true }
                 ],
-                footer: { text: 'Session active pendant 1 minute' }, // Texte mis à jour
+                footer: { text: 'Session active pendant 1 minute' },
                 timestamp: new Date()
             };
         };
@@ -139,8 +139,6 @@ client.on('messageCreate', async (message) => {
         );
 
         const panelMessage = await message.channel.send({ embeds: [generateConfigEmbed()], components: [mainRow] });
-        
-        // CORRECTION : Durée passée à 60000 ms (1 minute pile)
         const collector = panelMessage.createMessageComponentCollector({ time: 60000 });
 
         collector.on('collect', async (interaction) => {
@@ -148,7 +146,8 @@ client.on('messageCreate', async (message) => {
             
             if (interaction.customId === 'cfg_close') {
                 collector.stop();
-                return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
+                try { await panelMessage.delete(); } catch (err) {} // Supprime le panneau directement à la fermeture
+                return;
             }
             
             if (interaction.customId === 'cfg_staff_help') {
@@ -157,22 +156,10 @@ client.on('messageCreate', async (message) => {
                     title: '🛠️ GUIDE DE MODÉRATION COMPLET',
                     description: 'Voici la documentation des commandes à utiliser sur le serveur. Suis bien la syntaxe indiquée.',
                     fields: [
-                        { 
-                            name: `🧹 ${serverConfig.prefix}clear [1-100]`, 
-                            value: 'Supprime instantanément le nombre de messages spécifié dans le salon actuel. Note : Discord bloque la suppression des messages vieux de plus de 14 jours.' 
-                        },
-                        { 
-                            name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, 
-                            value: 'Exclut temporairement un utilisateur du serveur (il ne pourra plus écrire ni parler). Durées acceptées : `1m` (1 minute), `5m`, `10m`, `30m`, ou `1h` (1 heure).' 
-                        },
-                        { 
-                            name: `🚫 ${serverConfig.prefix}ban @membre`, 
-                            value: 'Bannit définitivement un membre du serveur. Une confirmation explicite (répondre par oui ou non) sera demandée dans le chat pour éviter toute erreur.' 
-                        },
-                        { 
-                            name: `🎁 ${serverConfig.prefix}setupcodes`, 
-                            value: 'Installe l\'embed fixe et permanent contenant le bouton vert cliquable pour que les membres accèdent à leurs codes Roblox.' 
-                        }
+                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime instantanément le nombre de messages spécifié dans le salon actuel.' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut temporairement un utilisateur. Durées : `1m`, `5m`, `10m`, `30m`, ou `1h`.' },
+                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement un membre avec système de confirmation (oui/non).' },
+                        { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe l\'embed fixe avec le bouton vert cliquable secret pour les codes.' }
                     ],
                     footer: { text: '🔒 Ce guide n\'est visible que par toi.' },
                     timestamp: new Date()
@@ -185,7 +172,7 @@ client.on('messageCreate', async (message) => {
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 30000 });
                 msgCollector.on('collect', async (m) => {
                     serverConfig.prefix = m.content.trim().split(/ +/)[0];
-                    try { await m.delete(); } catch(e){}
+                    try { await m.delete(); } catch(e){} // Supprime le texte tapé par l'admin pour le préfixe
                     await panelMessage.edit({ content: `✅ Préfixe mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
                 });
             }
@@ -199,11 +186,11 @@ client.on('messageCreate', async (message) => {
             }
         });
 
-        // Quand la minute est écoulée, on désactive les boutons pour éviter les bugs
-        collector.on('end', async () => {
-            try {
-                await panelMessage.edit({ content: '⌛ Session de configuration expirée (1 minute écoulée).', components: [] });
-            } catch (err) {}
+        collector.on('end', async (collected, reason) => {
+            // Si le collecteur s'arrête tout seul au bout d'une minute (sans fermeture manuelle)
+            if (reason === 'time') {
+                try { await panelMessage.delete(); } catch (err) {} // Supprime proprement le panneau pour ne laisser aucune trace
+            }
         });
 
         return;
@@ -211,7 +198,7 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !MUTE ---
     if (command === 'mute') {
-        try { await message.delete(); } catch (err) {}
+        try { await message.delete(); } catch (err) {} // Supprime le message !mute de l'admin
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
@@ -234,19 +221,19 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
-        try { await message.delete(); } catch (err) {}
+        try { await message.delete(); } catch (err) {} // Supprime le message !clear de l'admin
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
         if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
-            message.channel.send(`✅ **${deleted.size}** messages supprimés.`).then(m => setTimeout(() => m.delete(), 3000));
+            message.channel.send("✅ Suppression effectuée avec succès.").then(m => setTimeout(() => m.delete(), 3000));
         } catch (err) {}
     }
 
     // --- COMMANDE : !BAN ---
     if (command === 'ban') {
-        try { await message.delete(); } catch (err) {}
+        try { await message.delete(); } catch (err) {} // Supprime le message !ban de l'admin
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
         if (!member || member.id === message.author.id || !member.bannable) return;
@@ -256,11 +243,15 @@ client.on('messageCreate', async (message) => {
         
         try {
             const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
-            if (collected.first().content.toLowerCase() === 'oui') {
+            const responseMessage = collected.first();
+            try { await responseMessage.delete(); } catch(e){} // Supprime le "oui" ou "non" du modérateur
+            
+            if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** banni.`);
-            } else { message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
-            try { await collected.first().delete(); } catch(e){}
+                message.channel.send(`🚫 **${member.user.tag}** banni avec succès.`).then(m => setTimeout(() => m.delete(), 5000));
+            } else { 
+                message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); 
+            }
             try { await confirmMsg.delete(); } catch(e){}
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
     }
