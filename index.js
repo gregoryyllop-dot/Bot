@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const express = require('express');
 
 // --- 1. CONFIGURATION DU SERVEUR POUR RENDER ---
@@ -17,17 +17,149 @@ const client = new Client({
     ]
 });
 
-const PREFIX = "!"; 
+// --- BASE DE DONNÉES TEMPORAIRE (Sauvegardée en mémoire) ---
+// Note : Si le bot redémarre sur Render, ces valeurs reviendront par défaut.
+const serverConfig = {
+    prefix: "!",
+    welcomeRole: "Arrivant"
+};
 
 client.on('ready', () => {
     console.log(`Connecté en tant que ${client.user.tag}`);
 });
 
-client.on('messageCreate', async (message) => {
-    if (!message.content.startsWith(PREFIX) || message.author.bot) return;
+// --- ENREGISTREMENT D'UN NOUVEAU MEMBRE ---
+client.on('guildMemberAdd', async (member) => {
+    const roleName = serverConfig.welcomeRole; 
+    const role = member.guild.roles.cache.find(r => r.name === roleName || r.id === roleName);
 
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    if (!role) {
+        return console.log(`[ERREUR BIENVENUE] Le rôle "${roleName}" est introuvable.`);
+    }
+
+    try {
+        await member.roles.add(role);
+        console.log(`[BIENVENUE] Rôle "${role.name}" attribué à ${member.user.tag}.`);
+    } catch (err) {
+        console.error(`[ERREUR BIENVENUE] Impossible d'attribuer le rôle. Vérifie la hiérarchie.`);
+    }
+});
+
+// --- GESTION DES MESSAGES & COMMANDES ---
+client.on('messageCreate', async (message) => {
+    // On utilise le préfixe dynamique de la configuration
+    const currentPrefix = serverConfig.prefix;
+
+    if (!message.content.startsWith(currentPrefix) || message.author.bot) return;
+
+    const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
+
+    // --- COMMANDE : !CONFIG (PANEL DE CONFIGURATION) ---
+    if (command === 'config') {
+        // Sécurité : Seuls les admins ou gestionnaires du serveur peuvent configurer
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+            return message.reply("⚠️ Tu dois disposer de la permission `Gérer le serveur` pour modifier ma configuration.");
+        }
+
+        // Fonction pour générer l'embed du panel
+        const generateConfigEmbed = () => {
+            return {
+                color: 0x5865F2,
+                title: '⚙️ PANNEAU DE CONFIGURATION - SEIMI',
+                description: 'Clique sur les boutons ci-dessous pour modifier la configuration du bot comme sur DraftBot.',
+                fields: [
+                    { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
+                    { name: '👋 Rôle d\'Arrivée', value: `\`${serverConfig.welcomeRole}\``, inline: true }
+                ],
+                footer: { text: 'Session active pendant 2 minutes' },
+                timestamp: new Date()
+            };
+        };
+
+        // Création des boutons
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('cfg_prefix')
+                .setLabel('Modifier le Préfixe')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📌'),
+            new ButtonBuilder()
+                .setCustomId('cfg_role')
+                .setLabel('Modifier le Rôle d\'Arrivée')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👋'),
+            new ButtonBuilder()
+                .setCustomId('cfg_close')
+                .setLabel('Fermer')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔒')
+        );
+
+        const panelMessage = await message.channel.send({
+            embeds: [generateConfigEmbed()],
+            components: [row]
+        });
+
+        // Collecteur d'interactions pour les boutons (durée : 2 minutes)
+        const buttonCollector = panelMessage.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            time: 120000
+        });
+
+        buttonCollector.on('collect', async (interaction) => {
+            // Seul l'auteur de la commande peut cliquer
+            if (interaction.user.id !== message.author.id) {
+                return interaction.reply({ content: "❌ Ce n'est pas ton panneau de configuration.", ephemeral: true });
+            }
+
+            if (interaction.customId === 'cfg_close') {
+                buttonCollector.stop();
+                return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
+            }
+
+            // Si on change le préfixe
+            if (interaction.customId === 'cfg_prefix') {
+                await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', components: [] });
+                
+                const filter = m => m.author.id === message.author.id;
+                const msgCollector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
+
+                msgCollector.on('collect', async (m) => {
+                    const newPrefix = m.content.trim().split(/ +/)[0];
+                    serverConfig.prefix = newPrefix;
+                    try { await m.delete(); } catch(e){} // Supprime le message de l'utilisateur pour faire propre
+                    
+                    await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [row] });
+                });
+            }
+
+            // Si on change le rôle d'arrivée
+            if (interaction.customId === 'cfg_role') {
+                await interaction.update({ content: '✍️ **Entre le NOM exact du rôle d\'arrivée (Ex: Membre) :**', components: [] });
+                
+                const filter = m => m.author.id === message.author.id;
+                const msgCollector = message.channel.createMessageCollector({ filter, max: 1, time: 30000 });
+
+                msgCollector.on('collect', async (m) => {
+                    const newRole = m.content.trim();
+                    serverConfig.welcomeRole = newRole;
+                    try { await m.delete(); } catch(e){}
+                    
+                    await panelMessage.edit({ content: `✅ Rôle de bienvenue mis à jour !`, embeds: [generateConfigEmbed()], components: [row] });
+                });
+            }
+        });
+
+        buttonCollector.on('end', async () => {
+            // Nettoyage des boutons à la fin du temps imparti si le panel n'a pas été fermé manuellement
+            try {
+                await panelMessage.edit({ components: [] });
+            } catch (err) {}
+        });
+
+        return; // On stoppe ici pour ne pas exécuter le reste du code de messageCreate
+    }
 
     // --- COMMANDE : !STAFF / !HELP ---
     if (command === 'staff' || command === 'help') {
@@ -38,13 +170,13 @@ client.on('messageCreate', async (message) => {
         const staffEmbed = {
             color: 0x0099ff,
             title: '🛠️ GUIDE MODÉRATION - SEIMI BOT',
-            description: 'Liste des commandes disponibles pour le personnel.',
+            description: `Liste des commandes disponibles pour le personnel. (Préfixe actuel : \`${currentPrefix}\`)`,
             fields: [
-                { name: '🧹 !clear [1-100]', value: 'Nettoie les messages récents.' },
-                { name: '👞 !kick @membre', value: 'Expulse un utilisateur.' },
-                { name: '🚫 !ban @membre', value: 'Bannit un membre (confirmation requise).' },
-                { name: '🤐 !mute @membre [temps]', value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' },
-                { name: '🔊 !unmute @membre', value: 'Retire l\'exclusion d\'un membre.' },
+                { name: `🧹 ${currentPrefix}clear [1-100]`, value: 'Nettoie les messages récents.' },
+                { name: `👞 ${currentPrefix}kick @membre`, value: 'Expulse un utilisateur.' },
+                { name: `🚫 ${currentPrefix}ban @membre`, value: 'Bannit un membre (confirmation requise).' },
+                { name: `🤐 ${currentPrefix}mute @membre [temps]`, value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' },
+                { name: `⚙️ ${currentPrefix}config`, value: 'Ouvre le panneau de configuration interactif.' }
             ],
             footer: { text: 'Système Chroniques de la Zone 5' },
             timestamp: new Date(),
@@ -92,43 +224,22 @@ client.on('messageCreate', async (message) => {
     if (command === 'ban') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
-        
         if (!member) return message.reply("Mentionne quelqu'un, je ne devine pas les noms.");
 
-        // --- PROTECTION POUR SSEIKAA ET LINQUI0162 ---
         const vips = ['sseikaa', 'linqui0162'];
         if (vips.includes(member.user.username.toLowerCase())) {
             const repliquesVip = [
                 "Tu te prends pour qui, espèce de déchet ? Jamais je ne toucherai à l'élite.",
                 "Mdr, regarde-toi essayer de ban un dieu alors que t'es qu'une merde. Dégage.",
-                "Espèce de sous-être, pose encore tes mains sales sur cette commande et c'est toi que j'efface.",
-                "T'as cru que j'obéissais aux ordres d'un moins que rien ? Laisse tomber, t'es pathétique.",
-                "Bannir cette personne ? On voit que ton cerveau tourne à deux à l'heure. Barre-toi.",
-                "T'as pas assez de neurones pour t'en prendre à eux. Retourne jouer aux billes.",
-                "C'est sseikaa et linqui ici, pas tes potes du quartier. Un peu de respect, larbin.",
-                "Ton audace me dégoûte. Essaie encore et je formate ton compte, espèce de clown.",
-                "Si l'incompétence avait un visage, ce serait le tien en train d'essayer de ban ces légendes.",
-                "Permission refusée. Cause : T'es une sous-merce et ils sont intouchables."
+                "Espèce de sous-être, pose encore tes mains sales sur cette commande et c'est toi que j'efface."
             ];
-            return message.reply(`💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
+            return message.reply(``💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
         }
 
-        // --- CAS DE L'AUTO-BAN (L'UTILISATEUR EST UN ABRUTI) ---
         if (member.id === message.author.id) {
-            const repliquesCon = [
-                "T'es vraiment fini à la pisse... Tu crois que je vais t'aider à te ban ? Abruti.",
-                "Record du monde de stupidité battu. Pourquoi tu forces sur la commande, espèce de clown ?",
-                "T'as vraiment pas inventé l'eau chaude. On ne peut pas se ban soi-même, sombre crétin.",
-                "Mais t'es complètement con ou quoi ? Barre-toi du serv tout seul au lieu de spammer, débile.",
-                "L'intelligence te poursuit, mais t'es manifestement plus rapide. Quel genre d'abruti s'auto-ban ?",
-                "Non mais sérieux, t'es né avec un cerveau en option ? Arrête tes conneries, tu me fais pitié.",
-                "Même un bot buggé est plus intelligent que toi. T'es vraiment l'élite des abrutis.",
-                "C'est grave à ce niveau-là... demande à un vrai modo de te sortir, puisque t'es trop bête pour le faire seul."
-            ];
-            return message.reply(`🤡 **${repliquesCon[Math.floor(Math.random() * repliquesCon.length)]}**`);
+            return message.reply("🤡 T'es sérieux à vouloir t'auto-ban ? Hors de ma vue.");
         }
 
-        // --- PROCÉDURE NORMALE ---
         message.reply(`⚠️ Confirme le bannissement de **${member.user.tag}** ? (oui/non)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
         
@@ -138,10 +249,10 @@ client.on('messageCreate', async (message) => {
                 await member.ban();
                 message.channel.send(`🚫 **${member.user.tag}** a été éjecté proprement.`);
             } else { 
-                message.channel.send("✅ Annulé. T'as eu de la chance, le modérateur a eu pitié."); 
+                message.channel.send("✅ Annulé. T'as eu de la chance."); 
             }
         } catch (err) { 
-            message.channel.send("⌛ Trop lent. Comme ta réflexion."); 
+            message.channel.send("⌛ Trop lent."); 
         }
     }
 });
