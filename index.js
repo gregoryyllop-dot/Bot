@@ -36,7 +36,8 @@ const client = new Client({
 // --- BASE DE DONNÉES TEMPORAIRE (Sauvegardée en mémoire) ---
 const serverConfig = {
     prefix: "!",
-    welcomeRole: "Arrivant"
+    welcomeRole: "Arrivant",
+    codesChannelId: "1514658424791502848" // Ton salon spécifique pour les codes
 };
 
 client.on('ready', () => {
@@ -71,8 +72,10 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !CONFIG (PANEL DE CONFIGURATION) ---
     if (command === 'config') {
+        try { await message.delete(); } catch (err) {}
+
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-            return message.reply("⚠️ Tu dois disposer de la permission `Gérer le serveur` pour modifier ma configuration.");
+            return message.reply("⚠️ Tu dois disposer de la permission `Gérer le serveur` pour modifier ma configuration.").then(m => setTimeout(() => m.delete(), 5000));
         }
 
         const getRoleDisplay = () => {
@@ -204,26 +207,46 @@ client.on('messageCreate', async (message) => {
         return;
     }
 
-    // --- COMMANDE : !CODES (ROBLOX REWARDS) ---
+    // --- COMMANDE : !CODES (ROBLOX REWARDS - VERSION SÉCURISÉE) ---
     if (command === 'codes') {
+        try { await message.delete(); } catch (err) {}
+
+        // Sécurité : Vérifie si la commande est bien tapée dans ton salon dédié
+        if (message.channel.id !== serverConfig.codesChannelId) {
+            return message.author.send(`⚠️ La commande \`!codes\` est utilisable uniquement dans le salon dédié : <#${serverConfig.codesChannelId}>.`)
+                .catch(() => {
+                    message.channel.send(`⚠️ **${message.author}**, la commande \`!codes\` doit être utilisée dans <#${serverConfig.codesChannelId}>.`)
+                        .then(m => setTimeout(() => m.delete(), 5000));
+                });
+        }
+
         const codesEmbed = {
             color: 0x00E676,
             title: '🎮 CODES DE RÉCOMPENSE ROBLOX',
-            description: 'Retrouve ici les derniers codes actifs pour obtenir des récompenses en jeu !',
+            description: 'Retrouve ici tes codes actifs ! Ce message n\'est visible que par toi.',
             fields: [
                 { name: '📌 Codes Actifs', value: '❌ *Aucun code promotionnel n\'est disponible pour le moment.*' },
-                { name: '💡 Info', value: 'Les nouveaux codes seront annoncés directement dans ce menu dès qu\'ils seront partagés.' }
+                { name: '💡 Info', value: 'Reviens régulièrement ! Les nouveaux codes s\'afficheront ici dès qu\'ils sortiront.' }
             ],
-            footer: { text: 'Restez à l\'affût des prochaines mises à jour' },
+            footer: { text: 'Espace personnel Seimi' },
             timestamp: new Date()
         };
-        return message.channel.send({ embeds: [codesEmbed] });
+
+        // On utilise un bouton ou une interaction simulée pour que la réponse reste 100% secrète (Éphémère)
+        // Comme les messages classiques ne peuvent pas être éphémères, on envoie l'embed via un message direct secret
+        return message.author.send({ embeds: [codesEmbed] }).catch(async () => {
+            // Si les MP du membre sont fermés, on envoie un message temporaire dans le salon
+            const m = await message.channel.send({ content: `⚠️ ${message.author}, ouvre tes messages privés pour recevoir tes codes, ou utilise le système d'interaction du salon !`, embeds: [codesEmbed] });
+            setTimeout(() => m.delete(), 15000);
+        });
     }
 
     // --- COMMANDE : !STAFF / !HELP ---
     if (command === 'staff' || command === 'help') {
+        try { await message.delete(); } catch (err) {}
+
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-            return message.reply("⚠️ Accès réservé au personnel modérateur.");
+            return message.reply("⚠️ Accès réservé au personnel modérateur.").then(m => setTimeout(() => m.delete(), 5000));
         }
 
         const staffEmbed = {
@@ -241,15 +264,17 @@ client.on('messageCreate', async (message) => {
             footer: { text: 'Seimi Bot Management' },
             timestamp: new Date(),
         };
-        return message.channel.send({ embeds: [staffEmbed] });
+        return message.channel.send({ embeds: [staffEmbed] }).then(m => setTimeout(() => m.delete(), 30000));
     }
 
     // --- COMMANDE : !MUTE ---
     if (command === 'mute') {
+        try { await message.delete(); } catch (err) {}
+
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
-        if (!member) return message.reply("Veuillez mentionner le membre à exclure temporairement.");
+        if (!member) return message.reply("Veuillez mentionner le membre à exclure temporairement.").then(m => setTimeout(() => m.delete(), 5000));
         
         let time = 0;
         switch (duration) {
@@ -258,56 +283,66 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Veuillez préciser une durée valide : `1m`, `5m`, `10m`, `30m` ou `1h`.");
+            default: return message.reply("Veuillez préciser une durée valide : `1m`, `5m`, `10m`, `30m` ou `1h`.").then(m => setTimeout(() => m.delete(), 5000));
         }
 
         try {
             await member.timeout(time, "Mute via commande !mute");
-            message.channel.send(`🤐 **${member.user.tag}** a été exclu temporairement pour une durée de **${duration}**.`);
+            message.channel.send(`🤐 **${member.user.tag}** a été exclu temporairement pour une durée de **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
         } catch (err) {
-            message.reply("❌ Impossible de modifier le statut de ce membre (vérifiez la hiérarchie des rôles).");
+            message.reply("❌ Impossible de modifier le statut de ce membre (vérifiez la hiérarchie des rôles).").then(m => setTimeout(() => m.delete(), 5000));
         }
     }
 
     // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
+        try { await message.delete(); } catch (err) {}
+
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Veuillez indiquer un nombre de messages à supprimer compris entre 1 et 100.");
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Veuillez indiquer un nombre de messages à supprimer compris entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
             message.channel.send(`✅ **${deleted.size}** messages ont été supprimés avec succès.`).then(m => setTimeout(() => m.delete(), 3000));
-        } catch (err) { message.reply("❌ Une erreur est survenue lors de la suppression des messages."); }
+        } catch (err) { message.reply("❌ Une erreur est survenue lors de la suppression des messages.").then(m => setTimeout(() => m.delete(), 5000)); }
     }
 
     // --- COMMANDE : !BAN ---
     if (command === 'ban') {
+        try { await message.delete(); } catch (err) {}
+
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
-        if (!member) return message.reply("Veuillez mentionner le membre à bannir.");
+        if (!member) return message.reply("Veuillez mentionner le membre à bannir.").then(m => setTimeout(() => m.delete(), 5000));
 
         if (member.id === message.author.id) {
-            return message.reply("⚠️ Vous ne pouvez pas appliquer cette action sur vous-même.");
+            return message.reply("⚠️ Vous ne pouvez pas appliquer cette action sur vous-même.").then(m => setTimeout(() => m.delete(), 5000));
         }
 
-        // Vérification si la cible possède un rôle plus haut ou égal au bot
         if (!member.bannable) {
-            return message.reply("❌ Impossible de procéder au bannissement. Mes privilèges actuels ne me permettent pas de sanctionner cet utilisateur.");
+            return message.reply("❌ Impossible de procéder au bannissement. Mes privilèges actuels ne me permettent pas de sanctionner cet utilisateur.").then(m => setTimeout(() => m.delete(), 5000));
         }
 
-        message.reply(`⚠️ Confirmez-vous le bannissement définitif de **${member.user.tag}** ? (Répondez par \`oui\` ou \`non\`)`);
+        const confirmMsg = await message.channel.send(`⚠️ Confirmez-vous le bannissement définitif de **${member.user.tag}** ? (Répondez par \`oui\` ou \`non\`)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
         
         try {
             const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
-            if (collected.first().content.toLowerCase() === 'oui') {
+            const responseMessage = collected.first();
+            
+            if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban({ reason: `Banni via commande par ${message.author.tag}` });
                 message.channel.send(`🚫 **${member.user.tag}** a été banni du serveur.`);
             } else { 
-                message.channel.send("✅ Action annulée."); 
+                message.channel.send("✅ Action annulée.").then(m => setTimeout(() => m.delete(), 5000)); 
             }
+            
+            try { await responseMessage.delete(); } catch(e){}
+            try { await confirmMsg.delete(); } catch(e){}
+
         } catch (err) { 
-            message.channel.send("⌛ Temps de confirmation écoulé, action annulée."); 
+            message.channel.send("⌛ Temps de confirmation écoulé, action annulée.").then(m => setTimeout(() => m.delete(), 5000)); 
+            try { await confirmMsg.delete(); } catch(e){}
         }
     }
 });
