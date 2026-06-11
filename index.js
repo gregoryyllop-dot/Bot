@@ -18,7 +18,6 @@ const client = new Client({
 });
 
 // --- BASE DE DONNÉES TEMPORAIRE (Sauvegardée en mémoire) ---
-// Note : Si le bot redémarre sur Render, ces valeurs reviendront par défaut.
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant"
@@ -47,7 +46,6 @@ client.on('guildMemberAdd', async (member) => {
 
 // --- GESTION DES MESSAGES & COMMANDES ---
 client.on('messageCreate', async (message) => {
-    // On utilise le préfixe dynamique de la configuration
     const currentPrefix = serverConfig.prefix;
 
     if (!message.content.startsWith(currentPrefix) || message.author.bot) return;
@@ -57,12 +55,10 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !CONFIG (PANEL DE CONFIGURATION) ---
     if (command === 'config') {
-        // Sécurité : Seuls les admins ou gestionnaires du serveur peuvent configurer
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
             return message.reply("⚠️ Tu dois disposer de la permission `Gérer le serveur` pour modifier ma configuration.");
         }
 
-        // Fonction pour générer l'embed du panel
         const generateConfigEmbed = () => {
             return {
                 color: 0x5865F2,
@@ -77,7 +73,6 @@ client.on('messageCreate', async (message) => {
             };
         };
 
-        // Création des boutons
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('cfg_prefix')
@@ -101,14 +96,12 @@ client.on('messageCreate', async (message) => {
             components: [row]
         });
 
-        // Collecteur d'interactions pour les boutons (durée : 2 minutes)
         const buttonCollector = panelMessage.createMessageComponentCollector({
             componentType: ComponentType.Button,
             time: 120000
         });
 
         buttonCollector.on('collect', async (interaction) => {
-            // Seul l'auteur de la commande peut cliquer
             if (interaction.user.id !== message.author.id) {
                 return interaction.reply({ content: "❌ Ce n'est pas ton panneau de configuration.", ephemeral: true });
             }
@@ -118,7 +111,6 @@ client.on('messageCreate', async (message) => {
                 return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
             }
 
-            // Si on change le préfixe
             if (interaction.customId === 'cfg_prefix') {
                 await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', components: [] });
                 
@@ -128,13 +120,12 @@ client.on('messageCreate', async (message) => {
                 msgCollector.on('collect', async (m) => {
                     const newPrefix = m.content.trim().split(/ +/)[0];
                     serverConfig.prefix = newPrefix;
-                    try { await m.delete(); } catch(e){} // Supprime le message de l'utilisateur pour faire propre
+                    try { await m.delete(); } catch(e){}
                     
                     await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [row] });
                 });
             }
 
-            // Si on change le rôle d'arrivée
             if (interaction.customId === 'cfg_role') {
                 await interaction.update({ content: '✍️ **Entre le NOM exact du rôle d\'arrivée (Ex: Membre) :**', components: [] });
                 
@@ -152,13 +143,12 @@ client.on('messageCreate', async (message) => {
         });
 
         buttonCollector.on('end', async () => {
-            // Nettoyage des boutons à la fin du temps imparti si le panel n'a pas été fermé manuellement
             try {
                 await panelMessage.edit({ components: [] });
             } catch (err) {}
         });
 
-        return; // On stoppe ici pour ne pas exécuter le reste du code de messageCreate
+        return;
     }
 
     // --- COMMANDE : !STAFF / !HELP ---
@@ -233,7 +223,7 @@ client.on('messageCreate', async (message) => {
                 "Mdr, regarde-toi essayer de ban un dieu alors que t'es qu'une merde. Dégage.",
                 "Espèce de sous-être, pose encore tes mains sales sur cette commande et c'est toi que j'efface."
             ];
-            return message.reply(``💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
+            return message.reply(`💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
         }
 
         if (member.id === message.author.id) {
