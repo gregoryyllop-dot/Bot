@@ -3,52 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seimi Bot - Chroniques de la Zone 5</title>
+    <title>Seimi - Panel Staff & Commandes</title>
     <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: #161925;
+            --accent-color: #5865F2;
+            --danger-color: #f23f43;
+            --success-color: #23a55a;
+            --text-color: #ffffff;
+            --text-muted: #b5bac1;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f111a;
-            color: #ffffff;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
+        }
+
+        header {
             text-align: center;
+            padding: 40px 20px;
+            width: 100%;
+            max-width: 900px;
+            box-sizing: border-box;
         }
-        .container {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 500px;
+
+        header h1 {
+            color: var(--accent-color);
+            font-size: 2.2rem;
+            margin: 0 0 10px 0;
+            letter-spacing: 1px;
         }
-        h1 { color: #5865F2; margin-bottom: 10px; }
-        p { color: #a3a6aa; font-size: 1.1em; }
-        .status {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #248046;
-            padding: 8px 16px;
-            border-radius: 50px;
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .main-content {
+            width: 100%;
+            max-width: 900px;
+            padding: 0 20px 40px 20px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            color: #ffffff;
+            font-size: 1.5rem;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+            margin-top: 30px;
+        }
+
+        /* Grille des commandes */
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .cmd-card {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .cmd-name {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
             font-weight: bold;
-            font-size: 0.9em;
-            margin-top: 20px;
+            color: var(--accent-color);
+            background: rgba(88, 101, 242, 0.1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-bottom: 12px;
         }
-        .dot { width: 10px; height: 10px; background: #3ba55d; border-radius: 50%; display: inline-block; }
+
+        .cmd-card.danger .cmd-name {
+            color: var(--danger-color);
+            background: rgba(242, 63, 67, 0.1);
+        }
+
+        .cmd-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Section Règles Internes Staff */
+        .staff-rules {
+            background-color: var(--card-bg);
+            border-left: 4px solid var(--accent-color);
+            padding: 20px;
+            border-radius: 0 10px 10px 0;
+            margin-top: 15px;
+        }
+
+        .staff-rules ul {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-bottom: 30px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🤖 SEIMI BOT</h1>
-        <p>Le système de gestion et de modération officiel du serveur <strong>Chroniques de la Zone 5</strong>.</p>
-        <div class="status">
-            <span class="dot"></span> Opérationnel sur Render
+
+    <header>
+        <h1>🛠️ SEIMI - ESPACE MODÉRATION</h1>
+        <p>Documentation officielle et outils réservés au personnel du serveur</p>
+    </header>
+
+    <div class="main-content">
+
+        <h2>📋 Commandes de Modération</h2>
+        <div class="commands-grid">
+            
+            <div class="cmd-card">
+                <span class="cmd-name">!config</span>
+                <p class="cmd-desc">Ouvre le panneau de configuration interactif (Boutons et sélecteur de rôles) pour modifier les paramètres système du bot.</p>
+            </div>
+
+            <div class="cmd-card">
+                <span class="cmd-name">!clear [1-100]</span>
+                <p class="cmd-desc">Supprime instantanément le nombre de messages spécifié dans le salon actuel (ignore les messages de plus de 14 jours).</p>
+            </div>
+
+            <div class="cmd-card">
+                <span class="cmd-name">!mute @membre [temps]</span>
+                <p class="cmd-desc">Exclut temporairement un utilisateur. Durées acceptées : <code>1m</code>, <code>5m</code>, <code>10m</code>, <code>30m</code>, ou <code>1h</code>.</p>
+            </div>
+
+            <div class="cmd-card">
+                <span class="cmd-name">!staff / !help</span>
+                <p class="cmd-desc">Affiche l'embed d'aide rapide contenant la liste synthétique des commandes de modération directement sur Discord.</p>
+            </div>
+
+            <div class="cmd-card danger">
+                <span class="cmd-name">!ban @membre</span>
+                <p class="cmd-desc">Bannit définitivement un membre du serveur. Demande une confirmation explicite (oui/non) pour éviter les miss-clics.</p>
+            </div>
+
         </div>
+
+        <h2>⚖️ Charte d'utilisation du Staff</h2>
+        <div class="staff-rules">
+            <ul>
+                <li><strong>Exemplarité :</strong> Les modérateurs doivent respecter le règlement du serveur à la lettre.</li>
+                <li><strong>Impartialité :</strong> Appliquez les sanctions de manière juste, sans favoritisme, peu importe l'utilisateur.</li>
+                <li><strong>Sécurité Système :</strong> Ne jamais tenter de bannir ou cibler les membres de l'élite de la liste VIP sous peine de répliques cinglantes.</li>
+                <li><strong>Propreté :</strong> Utilisez la commande <code>!clear</code> de manière responsable afin de préserver les logs importants en cas de conflit.</li>
+            </ul>
+        </div>
+
+        <footer>
+            Système opérationnel &bull; Seimi Bot Panel v2.0
+        </footer>
+
     </div>
+
 </body>
 </html>
