@@ -126,7 +126,7 @@ client.on('messageCreate', async (message) => {
                     { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
                     { name: '👋 Rôle d\'Arrivée', value: getRoleDisplay(), inline: true }
                 ],
-                footer: { text: 'Session active pendant 2 minutes' },
+                footer: { text: 'Session active pendant 1 minute' }, // Texte mis à jour
                 timestamp: new Date()
             };
         };
@@ -139,7 +139,9 @@ client.on('messageCreate', async (message) => {
         );
 
         const panelMessage = await message.channel.send({ embeds: [generateConfigEmbed()], components: [mainRow] });
-        const collector = panelMessage.createMessageComponentCollector({ time: 120000 });
+        
+        // CORRECTION : Durée passée à 60000 ms (1 minute pile)
+        const collector = panelMessage.createMessageComponentCollector({ time: 60000 });
 
         collector.on('collect', async (interaction) => {
             if (interaction.user.id !== message.author.id) return interaction.reply({ content: "❌ Ce n'est pas ton panneau.", ephemeral: true });
@@ -148,19 +150,36 @@ client.on('messageCreate', async (message) => {
                 collector.stop();
                 return interaction.update({ content: '🔒 Panneau de configuration fermé.', embeds: [], components: [] });
             }
+            
             if (interaction.customId === 'cfg_staff_help') {
                 const staffEmbed = {
                     color: 0x0099ff,
-                    title: '🛠️ GUIDE MODÉRATION',
+                    title: '🛠️ GUIDE DE MODÉRATION COMPLET',
+                    description: 'Voici la documentation des commandes à utiliser sur le serveur. Suis bien la syntaxe indiquée.',
                     fields: [
-                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Nettoie le chat.' },
-                        { name: `👞 ${serverConfig.prefix}kick @membre`, value: 'Expulse.' },
-                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit.' },
-                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Mute.' }
-                    ]
+                        { 
+                            name: `🧹 ${serverConfig.prefix}clear [1-100]`, 
+                            value: 'Supprime instantanément le nombre de messages spécifié dans le salon actuel. Note : Discord bloque la suppression des messages vieux de plus de 14 jours.' 
+                        },
+                        { 
+                            name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, 
+                            value: 'Exclut temporairement un utilisateur du serveur (il ne pourra plus écrire ni parler). Durées acceptées : `1m` (1 minute), `5m`, `10m`, `30m`, ou `1h` (1 heure).' 
+                        },
+                        { 
+                            name: `🚫 ${serverConfig.prefix}ban @membre`, 
+                            value: 'Bannit définitivement un membre du serveur. Une confirmation explicite (répondre par oui ou non) sera demandée dans le chat pour éviter toute erreur.' 
+                        },
+                        { 
+                            name: `🎁 ${serverConfig.prefix}setupcodes`, 
+                            value: 'Installe l\'embed fixe et permanent contenant le bouton vert cliquable pour que les membres accèdent à leurs codes Roblox.' 
+                        }
+                    ],
+                    footer: { text: '🔒 Ce guide n\'est visible que par toi.' },
+                    timestamp: new Date()
                 };
                 return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
             }
+            
             if (interaction.customId === 'cfg_prefix') {
                 await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', embeds: [], components: [] });
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 30000 });
@@ -179,6 +198,14 @@ client.on('messageCreate', async (message) => {
                 await interaction.update({ content: `✅ Rôle de bienvenue mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
             }
         });
+
+        // Quand la minute est écoulée, on désactive les boutons pour éviter les bugs
+        collector.on('end', async () => {
+            try {
+                await panelMessage.edit({ content: '⌛ Session de configuration expirée (1 minute écoulée).', components: [] });
+            } catch (err) {}
+        });
+
         return;
     }
 
