@@ -15,10 +15,8 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Permet de lire les fichiers du dossier "public" (HTML, CSS, images)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Envoie le site vitrine quand on visite l'URL Render
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -86,7 +84,7 @@ client.on('messageCreate', async (message) => {
             return {
                 color: 0x5865F2,
                 title: '⚙️ PANNEAU DE CONFIGURATION - SEIMI',
-                description: 'Modifie les options système et accède aux outils de gestion du personnel.',
+                description: 'Clique sur les boutons ci-dessous pour configurer le système étape par étape.',
                 fields: [
                     { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
                     { name: '👋 Rôle d\'Arrivée', value: getRoleDisplay(), inline: true }
@@ -103,6 +101,11 @@ client.on('messageCreate', async (message) => {
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji('📌'),
             new ButtonBuilder()
+                .setCustomId('cfg_role_btn')
+                .setLabel('Modifier le Rôle')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('👋'),
+            new ButtonBuilder()
                 .setCustomId('cfg_staff_help')
                 .setLabel('Guide Modération')
                 .setStyle(ButtonStyle.Secondary)
@@ -114,16 +117,9 @@ client.on('messageCreate', async (message) => {
                 .setEmoji('🔒')
         );
 
-        const roleMenuRow = new ActionRowBuilder().addComponents(
-            new RoleSelectMenuBuilder()
-                .setCustomId('cfg_role_select')
-                .setPlaceholder('Sélectionner le rôle d\'arrivée...')
-                .setMaxValues(1)
-        );
-
         const panelMessage = await message.channel.send({
             embeds: [generateConfigEmbed()],
-            components: [roleMenuRow, mainRow]
+            components: [mainRow]
         });
 
         const collector = panelMessage.createMessageComponentCollector({
@@ -151,7 +147,7 @@ client.on('messageCreate', async (message) => {
                         { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit un membre (confirmation requise).' },
                         { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' }
                     ],
-                    footer: { text: 'Système Chroniques de la Zone 5' },
+                    footer: { text: 'Système global de gestion' },
                     timestamp: new Date(),
                 };
                 return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
@@ -168,7 +164,22 @@ client.on('messageCreate', async (message) => {
                     serverConfig.prefix = newPrefix;
                     try { await m.delete(); } catch(e){}
                     
-                    await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [roleMenuRow, mainRow] });
+                    await panelMessage.edit({ content: `✅ Préfixe mis à jour avec succès !`, embeds: [generateConfigEmbed()], components: [mainRow] });
+                });
+            }
+
+            if (interaction.customId === 'cfg_role_btn') {
+                const roleMenuRow = new ActionRowBuilder().addComponents(
+                    new RoleSelectMenuBuilder()
+                        .setCustomId('cfg_role_select')
+                        .setPlaceholder('Sélectionne le rôle d\'arrivée dans la liste...')
+                        .setMaxValues(1)
+                );
+
+                await interaction.update({ 
+                    content: '👋 **Étape 2 : Choisis le rôle d\'arrivée dans le menu déroulant ci-dessous :**', 
+                    embeds: [], 
+                    components: [roleMenuRow] 
                 });
             }
 
@@ -179,7 +190,7 @@ client.on('messageCreate', async (message) => {
                 await interaction.update({
                     content: `✅ Rôle de bienvenue mis à jour !`,
                     embeds: [generateConfigEmbed()],
-                    components: [roleMenuRow, mainRow]
+                    components: [mainRow]
                 });
             }
         });
@@ -191,6 +202,22 @@ client.on('messageCreate', async (message) => {
         });
 
         return;
+    }
+
+    // --- COMMANDE : !CODES (ROBLOX REWARDS) ---
+    if (command === 'codes') {
+        const codesEmbed = {
+            color: 0x00E676,
+            title: '🎮 CODES DE RÉCOMPENSE ROBLOX',
+            description: 'Retrouve ici les derniers codes actifs pour obtenir des récompenses en jeu !',
+            fields: [
+                { name: '📌 Codes Actifs', value: '❌ *Aucun code promotionnel n\'est disponible pour le moment.*' },
+                { name: '💡 Info', value: 'Les nouveaux codes seront annoncés directement dans ce menu dès qu\'ils seront partagés.' }
+            ],
+            footer: { text: 'Restez à l\'affût des prochaines mises à jour' },
+            timestamp: new Date()
+        };
+        return message.channel.send({ embeds: [codesEmbed] });
     }
 
     // --- COMMANDE : !STAFF / !HELP ---
@@ -208,9 +235,10 @@ client.on('messageCreate', async (message) => {
                 { name: `👞 ${currentPrefix}kick @membre`, value: 'Expulse un utilisateur.' },
                 { name: `🚫 ${currentPrefix}ban @membre`, value: 'Bannit un membre (confirmation requise).' },
                 { name: `🤐 ${currentPrefix}mute @membre [temps]`, value: 'Exclut : 1m, 5m, 10m, 30m, 1h.' },
+                { name: `🎮 ${currentPrefix}codes`, value: 'Affiche l\'espace des codes Roblox publics.' },
                 { name: `⚙️ ${currentPrefix}config`, value: 'Ouvre le panneau de configuration interactif.' }
             ],
-            footer: { text: 'Système Chroniques de la Zone 5' },
+            footer: { text: 'Seimi Bot Management' },
             timestamp: new Date(),
         };
         return message.channel.send({ embeds: [staffEmbed] });
@@ -221,7 +249,7 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
-        if (!member) return message.reply("Mentionne un membre à réduire au silence.");
+        if (!member) return message.reply("Veuillez mentionner le membre à exclure temporairement.");
         
         let time = 0;
         switch (duration) {
@@ -230,14 +258,14 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Précise une durée valide : `1m`, `5m`, `10m`, `30m` ou `1h`.");
+            default: return message.reply("Veuillez préciser une durée valide : `1m`, `5m`, `10m`, `30m` ou `1h`.");
         }
 
         try {
             await member.timeout(time, "Mute via commande !mute");
-            message.channel.send(`🤐 **${member.user.tag}** a été réduit au silence pour **${duration}**.`);
+            message.channel.send(`🤐 **${member.user.tag}** a été exclu temporairement pour une durée de **${duration}**.`);
         } catch (err) {
-            message.reply("❌ Impossible de mute ce membre.");
+            message.reply("❌ Impossible de modifier le statut de ce membre (vérifiez la hiérarchie des rôles).");
         }
     }
 
@@ -245,46 +273,41 @@ client.on('messageCreate', async (message) => {
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Chiffre entre 1 et 100, Einstein.");
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Veuillez indiquer un nombre de messages à supprimer compris entre 1 et 100.");
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
-            message.channel.send(`✅ **${deleted.size}** messages supprimés.`).then(m => setTimeout(() => m.delete(), 3000));
-        } catch (err) { message.reply("❌ Erreur de suppression."); }
+            message.channel.send(`✅ **${deleted.size}** messages ont été supprimés avec succès.`).then(m => setTimeout(() => m.delete(), 3000));
+        } catch (err) { message.reply("❌ Une erreur est survenue lors de la suppression des messages."); }
     }
 
     // --- COMMANDE : !BAN ---
     if (command === 'ban') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
-        if (!member) return message.reply("Mentionne quelqu'un, je ne devine pas les noms.");
-
-        const vips = ['sseikaa', 'linqui0162'];
-        if (vips.includes(member.user.username.toLowerCase())) {
-            const repliquesVip = [
-                "Tu te prends pour qui, espèce de déchet ? Jamais je ne toucherai à l'élite.",
-                "Mdr, regarde-toi essayer de ban un dieu alors que t'es qu'une merde. Dégage.",
-                "Espèce de sous-être, pose encore tes mains sales sur cette commande et c'est toi que j'efface."
-            ];
-            return message.reply(`💢 **${repliquesVip[Math.floor(Math.random() * repliquesVip.length)]}**`);
-        }
+        if (!member) return message.reply("Veuillez mentionner le membre à bannir.");
 
         if (member.id === message.author.id) {
-            return message.reply("🤡 T'es sérieux à vouloir t'auto-ban ? Hors de ma vue.");
+            return message.reply("⚠️ Vous ne pouvez pas appliquer cette action sur vous-même.");
         }
 
-        message.reply(`⚠️ Confirme le bannissement de **${member.user.tag}** ? (oui/non)`);
+        // Vérification si la cible possède un rôle plus haut ou égal au bot
+        if (!member.bannable) {
+            return message.reply("❌ Impossible de procéder au bannissement. Mes privilèges actuels ne me permettent pas de sanctionner cet utilisateur.");
+        }
+
+        message.reply(`⚠️ Confirmez-vous le bannissement définitif de **${member.user.tag}** ? (Répondez par \`oui\` ou \`non\`)`);
         const filter = m => m.author.id === message.author.id && ['oui', 'non'].includes(m.content.toLowerCase());
         
         try {
             const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
             if (collected.first().content.toLowerCase() === 'oui') {
-                await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** a été éjecté proprement.`);
+                await member.ban({ reason: `Banni via commande par ${message.author.tag}` });
+                message.channel.send(`🚫 **${member.user.tag}** a été banni du serveur.`);
             } else { 
-                message.channel.send("✅ Annulé. T'as eu de la chance."); 
+                message.channel.send("✅ Action annulée."); 
             }
         } catch (err) { 
-            message.channel.send("⌛ Trop lent."); 
+            message.channel.send("⌛ Temps de confirmation écoulé, action annulée."); 
         }
     }
 });
