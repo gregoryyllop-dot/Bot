@@ -30,7 +30,7 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildVoiceStates // Indispensable pour bouger les membres
+        GatewayIntentBits.GuildVoiceStates 
     ]
 });
 
@@ -38,12 +38,12 @@ const client = new Client({
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant",
-    codesChannelId: "1514658424791502848", // Salon des codes
+    codesChannelId: "1514658424791502848", 
     
     // CONFIGURATION DU SYSTEME MOOV
-    waitingVoiceId: "1468303822731612348", // Salon vocal d'attente (Attente moov)
-    privateVoiceId: "1498498611275895005", // Ton salon vocal privé
-    adminTextId: "1515043230960324800"      // Salon textuel de validation secret
+    waitingVoiceId: "1468303822731612348", 
+    privateVoiceId: "1498498611275895005", 
+    adminTextId: "1515043230960324800"      
 };
 
 client.on('ready', () => {
@@ -79,10 +79,10 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
     }
 
-    // GESTION DU SYSTÈME !MOOV (CORRIGÉE 🛠️)
+    // GESTION DU SYSTÈME !MOOV
     if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
         const parts = interaction.customId.split('_');
-        const action = parts[0]; // 'ma' = moov_accept, 'md' = moov_deny
+        const action = parts[0]; 
         const userId = parts[1];
         const originChannelId = parts[2];
         
@@ -96,7 +96,6 @@ client.on('interactionCreate', async (interaction) => {
 
         // Action : ACCEPTER LA DEMANDE
         if (action === 'ma') {
-            // Est-ce qu'il est toujours dans le vocal de transit/attente ?
             if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
                 if (originChannel) {
                     originChannel.send(`⚠️ ${member}, ton transfert a été accepté mais tu as quitté le salon vocal d'attente !`).then(m => setTimeout(() => m.delete(), 6000));
@@ -105,9 +104,7 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             try {
-                // Déplacement du joueur
                 await member.voice.setChannel(serverConfig.privateVoiceId);
-                
                 if (originChannel) {
                     originChannel.send(`✅ ${member}, ta demande a été acceptée ! Tu as été déplacé.`).then(m => setTimeout(() => m.delete(), 6000));
                 }
@@ -170,7 +167,6 @@ client.on('messageCreate', async (message) => {
             footer: { text: 'Système de Douane Seimi' }
         };
 
-        // Raccourcissement des IDs custom pour éviter la limite de caractères de Discord
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`ma_${message.author.id}_${message.channel.id}`)
@@ -184,7 +180,8 @@ client.on('messageCreate', async (message) => {
                 .setEmoji('🔴')
         );
 
-        return adminTextChannel.send({ content: `🔔 **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
+        // MODIFICATION ICI : Ajout du ping du rôle dans le message de notification
+        return adminTextChannel.send({ content: `🔔 <@&1463629608518815804> **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
     }
 
     // --- COMMANDE : !SETUPCODES ---
