@@ -29,15 +29,21 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildVoiceStates // INDISPENSABLE pour gérer les salons vocaux
     ]
 });
 
-// --- BASE DE DONNÉES TEMPORAIRE ---
+// --- BASE DE DONNÉES TEMPORAIRE & SALONS ---
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant",
-    codesChannelId: "1514658424791502848" // Ton salon spécifique pour les codes
+    codesChannelId: "1514658424791502848", // Salon secret pour les codes
+    
+    // CONFIGURATION DU SYSTEME DE DEPLACEMENT (MOOV)
+    waitingVoiceId: "1468303822731612348", // Salon vocal d'attente
+    privateVoiceId: "1498498611275895005", // Ton salon vocal privé
+    adminTextId: "1515043230960324800"      // Salon textuel secret pour ta validation
 };
 
 client.on('ready', () => {
@@ -70,8 +76,55 @@ client.on('interactionCreate', async (interaction) => {
             footer: { text: '🔒 Ce message n\'est visible que par vous' },
             timestamp: new Date()
         };
-
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
+    }
+
+    // GESTION DU SYSTÈME !MOOV (BOUTONS DANS TON SALON SECRET)
+    if (interaction.customId.startsWith('moov_')) {
+        const [action, userId, originChannelId] = interaction.customId.split('_');
+        
+        // On récupère le membre qui a fait la demande de moov
+        const guild = interaction.guild;
+        const member = await guild.members.fetch(userId).catch(() => null);
+        const originChannel = guild.channels.cache.get(originChannelId);
+
+        if (!member) {
+            return interaction.reply({ content: "❌ Le joueur n'est plus sur le serveur.", ephemeral: true });
+        }
+
+        // Si tu cliques sur ACCEPTER
+        if (action === 'moov_accept') {
+            // Sécurité : On vérifie s'il est toujours connecté en vocal
+            if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
+                if (originChannel) {
+                    originChannel.send(`⚠️ ${member}, ton transfert a été accepté mais tu as quitté le salon vocal d'attente !`).then(m => setTimeout(() => m.delete(), 6000));
+                }
+                return interaction.update({ content: `❌ Demande acceptée mais **${member.user.tag}** n'est plus dans le vocal d'attente.`, embeds: [], components: [] });
+            }
+
+            try {
+                // SEIMI déplace le joueur vers ton salon privé !
+                await member.voice.setChannel(serverConfig.privateVoiceId);
+                
+                // Message de confirmation dans le salon d'origine du joueur
+                if (originChannel) {
+                    originChannel.send(`✅ ${member}, ta demande a été acceptée ! Tu as été déplacé dans le salon privé.`).then(m => setTimeout(() => m.delete(), 6000));
+                }
+
+                // Met à jour ton salon secret pour dire que c'est fait
+                return interaction.update({ content: `🟢 Tu as **accepté** la demande de **${member.user.tag}**. Il a été déplacé.`, embeds: [], components: [] });
+            } catch (err) {
+                return interaction.reply({ content: "❌ Je n'ai pas pu déplacer le membre. Vérifie mes permissions vocales.", ephemeral: true });
+            }
+        }
+
+        // Si tu cliques sur REFUSER
+        if (action === 'moov_deny') {
+            if (originChannel) {
+                originChannel.send(`❌ ${member}, désolé, ta demande d'accès au salon privé a été **refusée**.`).then(m => setTimeout(() => m.delete(), 6000));
+            }
+            return interaction.update({ content: `🔴 Tu as **refusé** l'accès à **${member.user.tag}**.`, embeds: [], components: [] });
+        }
     }
 });
 
@@ -84,9 +137,63 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- COMMANDE : !SETUPCODES (Pour l'administrateur) ---
+    // --- COMMANDE : !MOOV (DEMANDE DE TRANSFERT VOCAL) ---
+    if (command === 'moov') {
+        try { await message.delete(); } catch (err) {} // Supprime instantanément le !moov du joueur
+
+        const voiceState = message.member.voice;
+
+        // Étape 1 : Est-ce que le mec est en vocal ?
+        if (!voiceState.channel) {
+            return message.channel.send(`⚠️ **${message.author}**, tu dois d'abord être connecté dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
+                .then(m => setTimeout(() => m.delete(), 6000));
+        }
+
+        // Étape 2 : Est-ce qu'il est bien dans la "Salle d'attente" ?
+        if (voiceState.channel.id !== serverConfig.waitingVoiceId) {
+            return message.channel.send(`⚠️ **${message.author}**, tu dois te trouver dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour demander un transfert.`)
+                .then(m => setTimeout(() => m.delete(), 6000));
+        }
+
+        // Étape 3 : Tout est bon, on prévient le joueur que sa demande est transmise
+        message.channel.send(`⏳ **${message.author}**, ta demande a été envoyée ! Patiente le temps que le responsable valide ton accès.`)
+            .then(m => setTimeout(() => m.delete(), 6000));
+
+        // Étape 4 : On envoie la demande avec les boutons dans TON salon secret textuel
+        const adminTextChannel = message.guild.channels.cache.get(serverConfig.adminTextId);
+        if (!adminTextChannel) return console.log("[ERREUR !MOOV] Le salon textuel secret est introuvable.");
+
+        const requestEmbed = {
+            color: 0xFFA000,
+            title: '📥 DEMANDE DE TRANSFERT VOCAL',
+            description: `Le joueur **${message.author.tag}** demande la permission de te rejoindre dans ton salon privé.`,
+            fields: [
+                { name: '👤 Utilisateur', value: `${message.author} (\`${message.author.id}\`)`, inline: true },
+                { name: '🔊 Salon actuel', value: `<#${serverConfig.waitingVoiceId}>`, inline: true }
+            ],
+            timestamp: new Date(),
+            footer: { text: 'Système de Douane Seimi' }
+        };
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`moov_accept_${message.author.id}_${message.channel.id}`)
+                .setLabel('Accepter')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🟢'),
+            new ButtonBuilder()
+                .setCustomId(`moov_deny_${message.author.id}_${message.channel.id}`)
+                .setLabel('Refuser')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔴')
+        );
+
+        return adminTextChannel.send({ content: `🔔 **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
+    }
+
+    // --- COMMANDE : !SETUPCODES ---
     if (command === 'setupcodes') {
-        try { await message.delete(); } catch (err) {} // Supprime le message !setupcodes de l'admin
+        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const setupEmbed = {
@@ -97,19 +204,14 @@ client.on('messageCreate', async (message) => {
         };
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('btn_get_codes')
-                .setLabel('Récupérer les codes')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🎮')
+            new ButtonBuilder().setCustomId('btn_get_codes').setLabel('Récupérer les codes').setStyle(ButtonStyle.Success).setEmoji('🎮')
         );
-
         return message.channel.send({ embeds: [setupEmbed], components: [row] });
     }
 
     // --- COMMANDE : !CONFIG ---
     if (command === 'config') {
-        try { await message.delete(); } catch (err) {} // Supprime le message !config de l'admin
+        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const getRoleDisplay = () => {
@@ -146,39 +248,36 @@ client.on('messageCreate', async (message) => {
             
             if (interaction.customId === 'cfg_close') {
                 collector.stop();
-                try { await panelMessage.delete(); } catch (err) {} // Supprime le panneau directement à la fermeture
+                try { await panelMessage.delete(); } catch (err) {}
                 return;
             }
-            
             if (interaction.customId === 'cfg_staff_help') {
                 const staffEmbed = {
                     color: 0x0099ff,
                     title: '🛠️ GUIDE DE MODÉRATION COMPLET',
-                    description: 'Voici la documentation des commandes à utiliser sur le serveur. Suis bien la syntaxe indiquée.',
                     fields: [
-                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime instantanément le nombre de messages spécifié dans le salon actuel.' },
-                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut temporairement un utilisateur. Durées : `1m`, `5m`, `10m`, `30m`, ou `1h`.' },
-                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement un membre avec système de confirmation (oui/non).' },
-                        { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe l\'embed fixe avec le bouton vert cliquable secret pour les codes.' }
+                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime les messages dans le salon.' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut un utilisateur. Durées : `1m`, `5m`, `10m`, `30m`, ou `1h`.' },
+                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement avec confirmation.' },
+                        { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe le bouton des codes Roblox.' }
                     ],
                     footer: { text: '🔒 Ce guide n\'est visible que par toi.' },
                     timestamp: new Date()
                 };
                 return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
             }
-            
             if (interaction.customId === 'cfg_prefix') {
-                await interaction.update({ content: '✍️ **Entre le nouveau préfixe dans le salon :**', embeds: [], components: [] });
+                await interaction.update({ content: '✍️ **Entre le nouveau préfixe :**', embeds: [], components: [] });
                 const msgCollector = message.channel.createMessageCollector({ filter: m => m.author.id === message.author.id, max: 1, time: 30000 });
                 msgCollector.on('collect', async (m) => {
                     serverConfig.prefix = m.content.trim().split(/ +/)[0];
-                    try { await m.delete(); } catch(e){} // Supprime le texte tapé par l'admin pour le préfixe
+                    try { await m.delete(); } catch(e){}
                     await panelMessage.edit({ content: `✅ Préfixe mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
                 });
             }
             if (interaction.customId === 'cfg_role_btn') {
                 const roleMenuRow = new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId('cfg_role_select').setPlaceholder('Sélectionne un rôle...').setMaxValues(1));
-                await interaction.update({ content: '👋 **Étape 2 : Choisis le rôle d\'arrivée dans le menu :**', embeds: [], components: [roleMenuRow] });
+                await interaction.update({ content: '👋 **Étape 2 : Choisis le rôle d\'arrivée :**', embeds: [], components: [roleMenuRow] });
             }
             if (interaction.customId === 'cfg_role_select') {
                 serverConfig.welcomeRole = interaction.values[0];
@@ -187,18 +286,14 @@ client.on('messageCreate', async (message) => {
         });
 
         collector.on('end', async (collected, reason) => {
-            // Si le collecteur s'arrête tout seul au bout d'une minute (sans fermeture manuelle)
-            if (reason === 'time') {
-                try { await panelMessage.delete(); } catch (err) {} // Supprime proprement le panneau pour ne laisser aucune trace
-            }
+            if (reason === 'time') { try { await panelMessage.delete(); } catch (err) {} }
         });
-
         return;
     }
 
     // --- COMMANDE : !MUTE ---
     if (command === 'mute') {
-        try { await message.delete(); } catch (err) {} // Supprime le message !mute de l'admin
+        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
@@ -221,7 +316,7 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
-        try { await message.delete(); } catch (err) {} // Supprime le message !clear de l'admin
+        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
         if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
@@ -233,7 +328,7 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !BAN ---
     if (command === 'ban') {
-        try { await message.delete(); } catch (err) {} // Supprime le message !ban de l'admin
+        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
         if (!member || member.id === message.author.id || !member.bannable) return;
@@ -244,14 +339,12 @@ client.on('messageCreate', async (message) => {
         try {
             const collected = await message.channel.awaitMessages({ filter, max: 1, time: 20000 });
             const responseMessage = collected.first();
-            try { await responseMessage.delete(); } catch(e){} // Supprime le "oui" ou "non" du modérateur
+            try { await responseMessage.delete(); } catch(e){}
             
             if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban();
                 message.channel.send(`🚫 **${member.user.tag}** banni avec succès.`).then(m => setTimeout(() => m.delete(), 5000));
-            } else { 
-                message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); 
-            }
+            } else { message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
             try { await confirmMsg.delete(); } catch(e){}
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
     }
