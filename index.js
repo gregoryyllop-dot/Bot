@@ -30,20 +30,20 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildVoiceStates // INDISPENSABLE pour gérer les salons vocaux
+        GatewayIntentBits.GuildVoiceStates // Indispensable pour bouger les membres
     ]
 });
 
-// --- BASE DE DONNÉES TEMPORAIRE & SALONS ---
+// --- CONFIGURATION DES PARAMÈTRES ET SALONS ---
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant",
-    codesChannelId: "1514658424791502848", // Salon secret pour les codes
+    codesChannelId: "1514658424791502848", // Salon des codes
     
-    // CONFIGURATION DU SYSTEME DE DEPLACEMENT (MOOV)
-    waitingVoiceId: "1468303822731612348", // Salon vocal d'attente
+    // CONFIGURATION DU SYSTEME MOOV
+    waitingVoiceId: "1468303822731612348", // Salon vocal d'attente (Attente moov)
     privateVoiceId: "1498498611275895005", // Ton salon vocal privé
-    adminTextId: "1515043230960324800"      // Salon textuel secret pour ta validation
+    adminTextId: "1515043230960324800"      // Salon textuel de validation secret
 };
 
 client.on('ready', () => {
@@ -79,22 +79,24 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
     }
 
-    // GESTION DU SYSTÈME !MOOV (BOUTONS DANS TON SALON SECRET)
-    if (interaction.customId.startsWith('moov_')) {
-        const [action, userId, originChannelId] = interaction.customId.split('_');
+    // GESTION DU SYSTÈME !MOOV (CORRIGÉE 🛠️)
+    if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
+        const parts = interaction.customId.split('_');
+        const action = parts[0]; // 'ma' = moov_accept, 'md' = moov_deny
+        const userId = parts[1];
+        const originChannelId = parts[2];
         
-        // On récupère le membre qui a fait la demande de moov
         const guild = interaction.guild;
         const member = await guild.members.fetch(userId).catch(() => null);
         const originChannel = guild.channels.cache.get(originChannelId);
 
         if (!member) {
-            return interaction.reply({ content: "❌ Le joueur n'est plus sur le serveur.", ephemeral: true });
+            return interaction.reply({ content: "❌ Le joueur n'est plus présent sur le serveur.", ephemeral: true });
         }
 
-        // Si tu cliques sur ACCEPTER
-        if (action === 'moov_accept') {
-            // Sécurité : On vérifie s'il est toujours connecté en vocal
+        // Action : ACCEPTER LA DEMANDE
+        if (action === 'ma') {
+            // Est-ce qu'il est toujours dans le vocal de transit/attente ?
             if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
                 if (originChannel) {
                     originChannel.send(`⚠️ ${member}, ton transfert a été accepté mais tu as quitté le salon vocal d'attente !`).then(m => setTimeout(() => m.delete(), 6000));
@@ -103,27 +105,24 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             try {
-                // SEIMI déplace le joueur vers ton salon privé !
+                // Déplacement du joueur
                 await member.voice.setChannel(serverConfig.privateVoiceId);
                 
-                // Message de confirmation dans le salon d'origine du joueur
                 if (originChannel) {
-                    originChannel.send(`✅ ${member}, ta demande a été acceptée ! Tu as été déplacé dans le salon privé.`).then(m => setTimeout(() => m.delete(), 6000));
+                    originChannel.send(`✅ ${member}, ta demande a été acceptée ! Tu as été déplacé.`).then(m => setTimeout(() => m.delete(), 6000));
                 }
-
-                // Met à jour ton salon secret pour dire que c'est fait
-                return interaction.update({ content: `🟢 Tu as **accepté** la demande de **${member.user.tag}**. Il a été déplacé.`, embeds: [], components: [] });
+                return interaction.update({ content: `🟢 Tu as **accepté** la demande de **${member.user.tag}**. Transfert réussi !`, embeds: [], components: [] });
             } catch (err) {
-                return interaction.reply({ content: "❌ Je n'ai pas pu déplacer le membre. Vérifie mes permissions vocales.", ephemeral: true });
+                return interaction.reply({ content: "❌ Impossible de déplacer le membre. Vérifie que j'ai bien la permission 'Déplacer des membres'.", ephemeral: true });
             }
         }
 
-        // Si tu cliques sur REFUSER
-        if (action === 'moov_deny') {
+        // Action : REFUSER LA DEMANDE
+        if (action === 'md') {
             if (originChannel) {
                 originChannel.send(`❌ ${member}, désolé, ta demande d'accès au salon privé a été **refusée**.`).then(m => setTimeout(() => m.delete(), 6000));
             }
-            return interaction.update({ content: `🔴 Tu as **refusé** l'accès à **${member.user.tag}**.`, embeds: [], components: [] });
+            return interaction.update({ content: `🔴 Tu as **refusé** la demande de **${member.user.tag}**.`, embeds: [], components: [] });
         }
     }
 });
@@ -137,31 +136,27 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- COMMANDE : !MOOV (DEMANDE DE TRANSFERT VOCAL) ---
+    // --- COMMANDE : !MOOV ---
     if (command === 'moov') {
-        try { await message.delete(); } catch (err) {} // Supprime instantanément le !moov du joueur
+        try { await message.delete(); } catch (err) {}
 
         const voiceState = message.member.voice;
 
-        // Étape 1 : Est-ce que le mec est en vocal ?
         if (!voiceState.channel) {
-            return message.channel.send(`⚠️ **${message.author}**, tu dois d'abord être connecté dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
+            return message.channel.send(`⚠️ **${message.author}**, tu dois d'abord rejoindre le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
                 .then(m => setTimeout(() => m.delete(), 6000));
         }
 
-        // Étape 2 : Est-ce qu'il est bien dans la "Salle d'attente" ?
         if (voiceState.channel.id !== serverConfig.waitingVoiceId) {
-            return message.channel.send(`⚠️ **${message.author}**, tu dois te trouver dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour demander un transfert.`)
+            return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour demander un transfert.`)
                 .then(m => setTimeout(() => m.delete(), 6000));
         }
 
-        // Étape 3 : Tout est bon, on prévient le joueur que sa demande est transmise
-        message.channel.send(`⏳ **${message.author}**, ta demande a été envoyée ! Patiente le temps que le responsable valide ton accès.`)
+        message.channel.send(`⏳ **${message.author}**, ton niveau d'accès est en cours de vérification. Patiente ici...`)
             .then(m => setTimeout(() => m.delete(), 6000));
 
-        // Étape 4 : On envoie la demande avec les boutons dans TON salon secret textuel
         const adminTextChannel = message.guild.channels.cache.get(serverConfig.adminTextId);
-        if (!adminTextChannel) return console.log("[ERREUR !MOOV] Le salon textuel secret est introuvable.");
+        if (!adminTextChannel) return console.log("Salon textuel de validation introuvable.");
 
         const requestEmbed = {
             color: 0xFFA000,
@@ -175,14 +170,15 @@ client.on('messageCreate', async (message) => {
             footer: { text: 'Système de Douane Seimi' }
         };
 
+        // Raccourcissement des IDs custom pour éviter la limite de caractères de Discord
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`moov_accept_${message.author.id}_${message.channel.id}`)
+                .setCustomId(`ma_${message.author.id}_${message.channel.id}`)
                 .setLabel('Accepter')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('🟢'),
             new ButtonBuilder()
-                .setCustomId(`moov_deny_${message.author.id}_${message.channel.id}`)
+                .setCustomId(`md_${message.author.id}_${message.channel.id}`)
                 .setLabel('Refuser')
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji('🔴')
