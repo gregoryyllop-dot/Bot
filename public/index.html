@@ -12,6 +12,7 @@
             --accent-blue: #5865F2;
             --accent-green: #00E676;
             --accent-red: #ff3333;
+            --accent-orange: #FFA000;
             --muted-text: #8e9297;
         }
 
@@ -53,6 +54,7 @@
 
         .section-title {
             font-size: 1.5rem;
+            margin-top: 40px;
             margin-bottom: 25px;
             border-bottom: 2px solid var(--card-bg);
             padding-bottom: 10px;
@@ -65,7 +67,7 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-            margin-bottom: 50px;
+            margin-bottom: 30px;
         }
 
         .command-card {
@@ -104,6 +106,7 @@
             border-left: 4px solid var(--accent-blue);
             padding: 20px;
             border-radius: 0 8px 8px 0;
+            margin-bottom: 30px;
         }
 
         .charte-box ul {
@@ -121,12 +124,69 @@
             color: var(--text-color);
         }
 
+        /* --- STYLES AJOUTÉS POUR LE SYSTÈME DE LOGS VISU --- */
+        .logs-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .log-panel {
+            flex: 1;
+            min-width: 300px;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .log-panel h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+            color: #fff;
+        }
+
+        .log-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .log-time {
+            color: var(--muted-text);
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
+
+        .log-code {
+            background: #0f111a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-blue);
+            font-family: monospace;
+        }
+
         @media (max-width: 768px) {
             .commands-grid {
                 grid-template-columns: 1fr;
             }
             .command-card-span {
                 grid-column: unset !important;
+            }
+            .logs-container {
+                flex-direction: column;
             }
         }
     </style>
@@ -164,7 +224,12 @@
                 <p>Installe le message d'accueil fixe avec le bouton cliquable secret permettant aux membres de récupérer leurs codes Roblox de manière éphémère.</p>
             </div>
 
-            <div class="command-card command-card-span" style="grid-column: span 2;">
+            <div class="command-card">
+                <span class="command-badge" style="background-color: var(--accent-orange);">!moov</span>
+                <p>Permet aux membres dans le salon d'attente d'envoyer une demande de transfert. Crée une alerte sécurisée avec des boutons de validation pour le staff.</p>
+            </div>
+
+            <div class="command-card command-card-span">
                 <span class="command-badge" style="background-color: var(--accent-red);">!ban @membre</span>
                 <p>Bannit définitivement un membre du serveur. Le bot demande une confirmation explicite (oui/non) dans le salon pour éviter les miss-clics du staff.</p>
             </div>
@@ -180,7 +245,72 @@
             </ul>
         </div>
 
+        <h2 class="section-title">📊 Moniteur d'Activité en Direct</h2>
+        <div class="logs-container">
+            
+            <div class="log-panel">
+                <h3>💬 Dernières Commandes Discord</h3>
+                <ul id="command-list" class="log-list">
+                    <li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>
+                </ul>
+            </div>
+
+            <div class="log-panel">
+                <h3>🌐 Trafic du Site (Humains &amp; Bots)</h3>
+                <ul id="visitor-list" class="log-list">
+                    <li class="log-item" style="color: var(--muted-text);">🔍 En attente de connexions...</li>
+                </ul>
+            </div>
+
+        </div>
+
     </div>
+
+    <script>
+        async function refreshLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
+
+                // 1. Mise à jour de la liste des commandes
+                const cmdList = document.getElementById('command-list');
+                if (data.commands && data.commands.length > 0) {
+                    cmdList.innerHTML = data.commands.map(c => 
+                        `<li class="log-item">
+                            <span class="log-time">[${c.time}]</span> 
+                            <strong>${c.user}</strong> a utilisé <span class="log-code">${c.command}</span>
+                        </li>`
+                    ).join('');
+                } else {
+                    cmdList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>`;
+                }
+
+                // 2. Mise à jour de la liste des visiteurs
+                const visitorList = document.getElementById('visitor-list');
+                if (data.visitors && data.visitors.length > 0) {
+                    visitorList.innerHTML = data.visitors.map(v => {
+                        const isHumain = v.type.includes('HUMAIN');
+                        const badgeColor = isHumain ? 'var(--accent-green)' : 'var(--accent-red)';
+                        return `<li class="log-item">
+                            <span class="log-time">[${v.time}]</span> 
+                            <span style="color: ${badgeColor}; font-weight: bold;">${v.type}</span>
+                            <div style="color: var(--muted-text); font-size: 0.8rem; margin-top: 2px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.1);">
+                                ${v.device}
+                            </div>
+                        </li>`;
+                    }).join('');
+                } else {
+                    visitorList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">🔍 En attente de connexions...</li>`;
+                }
+            } catch (err) {
+                console.error("Erreur lors de la synchronisation des données de monitoring :", err);
+            }
+        }
+
+        // Script d'actualisation automatique toutes les 3 secondes (3000ms)
+        setInterval(refreshLogs, 3000);
+        refreshLogs(); // Premier lancement immédiat
+    </script>
 
 </body>
 </html>
