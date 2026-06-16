@@ -15,7 +15,45 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 10000;
 
+// Tableaux pour stocker l'activité (Historique temporaire en mémoire)
+const commandLogs = [];
+const visitorLogs = [];
+
+// Fonction pour ajouter un log de commande (max 10)
+function logCommand(user, command) {
+    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    commandLogs.unshift({ time, user, command });
+    if (commandLogs.length > 10) commandLogs.pop();
+}
+
+// Middleware pour détecter les humains et les bots qui visitent le site
+app.use((req, res, next) => {
+    // On ignore les requêtes pour les fichiers internes (css, images, api...)
+    if (req.url === '/' || req.url === '/index.html') {
+        const userAgent = req.headers['user-agent'] || '';
+        const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        // Liste de mots clés pour repérer les robots connus (y compris cron-job / uptimerobot)
+        const botKeywords = ['bot', 'spider', 'crawler', 'cron-job', 'uptimerobot', 'axios', 'fetch'];
+        const isBot = botKeywords.some(keyword => userAgent.toLowerCase().includes(keyword));
+        
+        const visitorType = isBot ? '🤖 BOT / SCRIPT' : '👤 HUMAIN';
+        
+        // Raccourcir le userAgent pour l'affichage
+        const device = userAgent.split(') ')[0]?.slice(0, 50) + '...' || 'Inconnu';
+
+        visitorLogs.unshift({ time, type: visitorType, device });
+        if (visitorLogs.length > 10) visitorLogs.pop();
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Route API pour que ton site web puisse récupérer les données en temps réel
+app.get('/api/logs', (req, res) => {
+    res.json({ commands: commandLogs, visitors: visitorLogs });
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -94,7 +132,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: "❌ Le joueur n'est plus présent sur le serveur.", ephemeral: true });
         }
 
-        // Action : ACCEPTER LA DEMANDE
         if (action === 'ma') {
             if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
                 if (originChannel) {
@@ -110,11 +147,10 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 return interaction.update({ content: `🟢 Tu as **accepté** la demande de **${member.user.tag}**. Transfert réussi !`, embeds: [], components: [] });
             } catch (err) {
-                return interaction.reply({ content: "❌ Impossible de déplacer le membre. Vérifie que j'ai bien la permission 'Déplacer des membres'.", ephemeral: true });
+                return interaction.reply({ content: "❌ Impossible de déplacer le membre.", ephemeral: true });
             }
         }
 
-        // Action : REFUSER LA DEMANDE
         if (action === 'md') {
             if (originChannel) {
                 originChannel.send(`❌ ${member}, désolé, ta demande d'accès au salon privé a été **refusée**.`).then(m => setTimeout(() => m.delete(), 6000));
@@ -132,6 +168,9 @@ client.on('messageCreate', async (message) => {
 
     const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
+
+    // --- ENREGISTREMENT DE LA COMMANDE DANS LES LOGS DU SITE WEB ---
+    logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
 
     // --- COMMANDE : !MOOV ---
     if (command === 'moov') {
@@ -168,19 +207,10 @@ client.on('messageCreate', async (message) => {
         };
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ma_${message.author.id}_${message.channel.id}`)
-                .setLabel('Accepter')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🟢'),
-            new ButtonBuilder()
-                .setCustomId(`md_${message.author.id}_${message.channel.id}`)
-                .setLabel('Refuser')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('🔴')
+            new ButtonBuilder().setCustomId(`ma_${message.author.id}_${message.channel.id}`).setLabel('Accepter').setStyle(ButtonStyle.Success).setEmoji('🟢'),
+            new ButtonBuilder().setCustomId(`md_${message.author.id}_${message.channel.id}`).setLabel('Refuser').setStyle(ButtonStyle.Danger).setEmoji('🔴')
         );
 
-        // MODIFICATION ICI : Ajout du ping du rôle dans le message de notification
         return adminTextChannel.send({ content: `🔔 <@&1463629608518815804> **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
     }
 
@@ -216,7 +246,6 @@ client.on('messageCreate', async (message) => {
             return {
                 color: 0x5865F2,
                 title: '⚙️ PANNEAU DE CONFIGURATION - SEIMI',
-                description: 'Clique sur les boutons ci-dessous pour configurer le système étape par étape.',
                 fields: [
                     { name: '📌 Préfixe Actuel', value: `\`${serverConfig.prefix}\``, inline: true },
                     { name: '👋 Rôle d\'Arrivée', value: getRoleDisplay(), inline: true }
@@ -250,8 +279,8 @@ client.on('messageCreate', async (message) => {
                     title: '🛠️ GUIDE DE MODÉRATION COMPLET',
                     fields: [
                         { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime les messages dans le salon.' },
-                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut un utilisateur. Durées : `1m`, `5m`, `10m`, `30m`, ou `1h`.' },
-                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement avec confirmation.' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut un utilisateur.' },
+                        { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement.' },
                         { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe le bouton des codes Roblox.' }
                     ],
                     footer: { text: '🔒 Ce guide n\'est visible que par toi.' },
@@ -299,12 +328,12 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Durée invalide : 1m, 5m, 10m, 30m ou 1h.").then(m => setTimeout(() => m.delete(), 5000));
+            default: return message.reply("Durée invalide.").then(m => setTimeout(() => m.delete(), 5000));
         }
         try {
             await member.timeout(time, "Mute via commande");
             message.channel.send(`🤐 **${member.user.tag}** a été exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
-        } catch (err) { message.reply("Erreur : privilèges insuffisants.").then(m => setTimeout(() => m.delete(), 5000)); }
+        } catch (err) { message.reply("Erreur.").then(m => setTimeout(() => m.delete(), 5000)); }
     }
 
     // --- COMMANDE : !CLEAR ---
@@ -315,7 +344,7 @@ client.on('messageCreate', async (message) => {
         if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
             const deleted = await message.channel.bulkDelete(amount, true);
-            message.channel.send("✅ Suppression effectuée avec succès.").then(m => setTimeout(() => m.delete(), 3000));
+            message.channel.send("✅ Suppression effectuée.").then(m => setTimeout(() => m.delete(), 3000));
         } catch (err) {}
     }
 
@@ -336,7 +365,7 @@ client.on('messageCreate', async (message) => {
             
             if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** banni avec succès.`).then(m => setTimeout(() => m.delete(), 5000));
+                message.channel.send(`🚫 **${member.user.tag}** banni.`).then(m => setTimeout(() => m.delete(), 5000));
             } else { message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
             try { await confirmMsg.delete(); } catch(e){}
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
