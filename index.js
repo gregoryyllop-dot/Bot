@@ -5,52 +5,60 @@ const {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
-    ComponentType, 
     RoleSelectMenuBuilder 
 } = require('discord.js');
 const express = require('express');
 const path = require('path');
 
-// --- 1. CONFIGURATION DU SERVEUR ET SITE WEB POUR RENDER ---
+// --- 1. CONFIGURATION DU SERVEUR WEB (EXPRESS) ---
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Tableaux pour stocker l'activité (Historique temporaire en mémoire)
+// Tableaux de stockage temporaire en mémoire pour le site web
 const commandLogs = [];
 const visitorLogs = [];
 
-// Fonction pour ajouter un log de commande (max 10)
+// Fonction pour enregistrer les commandes Discord avec l'heure de Paris
 function logCommand(user, command) {
-    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = new Date().toLocaleTimeString('fr-FR', { 
+        timeZone: 'Europe/Paris', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
     commandLogs.unshift({ time, user, command });
-    if (commandLogs.length > 10) commandLogs.pop();
+    if (commandLogs.length > 10) commandLogs.pop(); // Garde les 10 dernières
 }
 
-// Middleware pour détecter les humains et les bots qui visitent le site
+// Middleware pour détecter les visiteurs (Humains vs Bots de ping)
 app.use((req, res, next) => {
-    // On ignore les requêtes pour les fichiers internes (css, images, api...)
     if (req.url === '/' || req.url === '/index.html') {
         const userAgent = req.headers['user-agent'] || '';
-        const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         
-        // Liste de mots clés pour repérer les robots connus (y compris cron-job / uptimerobot)
+        // Correction de l'heure : Force le fuseau horaire de Paris
+        const time = new Date().toLocaleTimeString('fr-FR', { 
+            timeZone: 'Europe/Paris', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+        
+        // Mots-clés pour repérer les systèmes de ping automatiques
         const botKeywords = ['bot', 'spider', 'crawler', 'cron-job', 'uptimerobot', 'axios', 'fetch'];
         const isBot = botKeywords.some(keyword => userAgent.toLowerCase().includes(keyword));
         
         const visitorType = isBot ? '🤖 BOT / SCRIPT' : '👤 HUMAIN';
-        
-        // Raccourcir le userAgent pour l'affichage
-        const device = userAgent.split(') ')[0]?.slice(0, 50) + '...' || 'Inconnu';
 
-        visitorLogs.unshift({ time, type: visitorType, device });
-        if (visitorLogs.length > 10) visitorLogs.pop();
+        visitorLogs.unshift({ time, type: visitorType, device: userAgent });
+        if (visitorLogs.length > 10) visitorLogs.pop(); // Garde les 10 dernières
     }
     next();
 });
 
+// Servir les fichiers statiques du dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Route API pour que ton site web puisse récupérer les données en temps réel
+// Route API pour alimenter le panneau d'affichage du site web
 app.get('/api/logs', (req, res) => {
     res.json({ commands: commandLogs, visitors: visitorLogs });
 });
@@ -59,9 +67,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(port, '0.0.0.0', () => console.log(`Serveur actif sur le port ${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`🚀 Serveur web actif sur le port ${port}`));
 
-// --- 2. CONFIGURATION DU BOT SEIMI ---
+
+// --- 2. CONFIGURATION DU BOT DISCORD (SEIMI) ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -72,36 +81,36 @@ const client = new Client({
     ]
 });
 
-// --- CONFIGURATION DES PARAMÈTRES ET SALONS ---
+// Paramètres de configuration du serveur
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant",
     codesChannelId: "1514658424791502848", 
     
-    // CONFIGURATION DU SYSTEME MOOV
+    // Configuration du système de douane vocal (!moov)
     waitingVoiceId: "1468303822731612348", 
     privateVoiceId: "1498498611275895005", 
     adminTextId: "1515043230960324800"      
 };
 
 client.on('ready', () => {
-    console.log(`Connecté en tant que ${client.user.tag}`);
+    console.log(`🤖 Bot Discord connecté : ${client.user.tag}`);
 });
 
-// --- ENREGISTREMENT D'UN NOUVEAU MEMBRE ---
+// Attribution automatique du rôle aux nouveaux membres
 client.on('guildMemberAdd', async (member) => {
     const roleNameOrId = serverConfig.welcomeRole; 
     const role = member.guild.roles.cache.get(roleNameOrId) || member.guild.roles.cache.find(r => r.name === roleNameOrId);
 
     if (!role) return;
-    try { await member.roles.add(role); } catch (err) {}
+    try { await member.roles.add(role); } catch (err) { console.error("Erreur rôle auto:", err); }
 });
 
-// --- GESTION DES INTERACTIONS (BOUTONS) ---
+// Gestion des interactions (Boutons et Menus de sélection)
 client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
+    if (!interaction.isButton() && !interaction.isRoleSelectMenu()) return;
 
-    // Gestion du bouton des CODES ROBLOX
+    // Bouton de récupération des codes Roblox
     if (interaction.customId === 'btn_get_codes') {
         const codesEmbed = {
             color: 0x00E676,
@@ -117,7 +126,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
     }
 
-    // GESTION DU SYSTÈME !MOOV
+    // Boutons du système de Douane (!moov)
     if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
         const parts = interaction.customId.split('_');
         const action = parts[0]; 
@@ -132,6 +141,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: "❌ Le joueur n'est plus présent sur le serveur.", ephemeral: true });
         }
 
+        // Action : Accepter le transfert
         if (action === 'ma') {
             if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
                 if (originChannel) {
@@ -151,6 +161,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
+        // Action : Refuser le transfert
         if (action === 'md') {
             if (originChannel) {
                 originChannel.send(`❌ ${member}, désolé, ta demande d'accès au salon privé a été **refusée**.`).then(m => setTimeout(() => m.delete(), 6000));
@@ -158,9 +169,16 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.update({ content: `🔴 Tu as **refusé** la demande de **${member.user.tag}**.`, embeds: [], components: [] });
         }
     }
+
+    // Sélecteur de rôle dans le panneau !config
+    if (interaction.customId === 'cfg_role_select') {
+        serverConfig.welcomeRole = interaction.values[0];
+        // On régénère l'affichage mis à jour (déclenché via le menu de sélection de rôles)
+        return interaction.update({ content: `✅ Rôle de bienvenue mis à jour !`, components: [] });
+    }
 });
 
-// --- GESTION DES MESSAGES & COMMANDES ---
+// Écouteur de messages et exécution des commandes
 client.on('messageCreate', async (message) => {
     const currentPrefix = serverConfig.prefix;
 
@@ -169,22 +187,16 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // --- ENREGISTREMENT DE LA COMMANDE DANS LES LOGS DU SITE WEB ---
+    // Envoi immédiat de la commande vers les logs du site web
     logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
 
     // --- COMMANDE : !MOOV ---
     if (command === 'moov') {
         try { await message.delete(); } catch (err) {}
-
         const voiceState = message.member.voice;
 
-        if (!voiceState.channel) {
-            return message.channel.send(`⚠️ **${message.author}**, tu dois d'abord rejoindre le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
-                .then(m => setTimeout(() => m.delete(), 6000));
-        }
-
-        if (voiceState.channel.id !== serverConfig.waitingVoiceId) {
-            return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour demander un transfert.`)
+        if (!voiceState.channel || voiceState.channel.id !== serverConfig.waitingVoiceId) {
+            return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
                 .then(m => setTimeout(() => m.delete(), 6000));
         }
 
@@ -192,7 +204,7 @@ client.on('messageCreate', async (message) => {
             .then(m => setTimeout(() => m.delete(), 6000));
 
         const adminTextChannel = message.guild.channels.cache.get(serverConfig.adminTextId);
-        if (!adminTextChannel) return console.log("Salon textuel de validation introuvable.");
+        if (!adminTextChannel) return;
 
         const requestEmbed = {
             color: 0xFFA000,
@@ -279,7 +291,7 @@ client.on('messageCreate', async (message) => {
                     title: '🛠️ GUIDE DE MODÉRATION COMPLET',
                     fields: [
                         { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime les messages dans le salon.' },
-                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut un utilisateur.' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut temporairement un utilisateur.' },
                         { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement.' },
                         { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe le bouton des codes Roblox.' }
                     ],
@@ -300,10 +312,6 @@ client.on('messageCreate', async (message) => {
             if (interaction.customId === 'cfg_role_btn') {
                 const roleMenuRow = new ActionRowBuilder().addComponents(new RoleSelectMenuBuilder().setCustomId('cfg_role_select').setPlaceholder('Sélectionne un rôle...').setMaxValues(1));
                 await interaction.update({ content: '👋 **Étape 2 : Choisis le rôle d\'arrivée :**', embeds: [], components: [roleMenuRow] });
-            }
-            if (interaction.customId === 'cfg_role_select') {
-                serverConfig.welcomeRole = interaction.values[0];
-                await interaction.update({ content: `✅ Rôle de bienvenue mis à jour !`, embeds: [generateConfigEmbed()], components: [mainRow] });
             }
         });
 
@@ -328,12 +336,12 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Durée invalide.").then(m => setTimeout(() => m.delete(), 5000));
+            default: return message.reply("Durée invalide (1m, 5m, 10m, 30m, 1h).").then(m => setTimeout(() => m.delete(), 5000));
         }
         try {
-            await member.timeout(time, "Mute via commande");
+            await member.timeout(time, "Mute via commande Seimi");
             message.channel.send(`🤐 **${member.user.tag}** a été exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
-        } catch (err) { message.reply("Erreur.").then(m => setTimeout(() => m.delete(), 5000)); }
+        } catch (err) { message.reply("Erreur de permissions pour appliquer l'exclusion.").then(m => setTimeout(() => m.delete(), 5000)); }
     }
 
     // --- COMMANDE : !CLEAR ---
@@ -343,7 +351,7 @@ client.on('messageCreate', async (message) => {
         let amount = parseInt(args[0]);
         if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
-            const deleted = await message.channel.bulkDelete(amount, true);
+            await message.channel.bulkDelete(amount, true);
             message.channel.send("✅ Suppression effectuée.").then(m => setTimeout(() => m.delete(), 3000));
         } catch (err) {}
     }
@@ -365,8 +373,8 @@ client.on('messageCreate', async (message) => {
             
             if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** banni.`).then(m => setTimeout(() => m.delete(), 5000));
-            } else { message.channel.send("Annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
+                message.channel.send(`🚫 **${member.user.tag}** banni définitivement.`).then(m => setTimeout(() => m.delete(), 5000));
+            } else { message.channel.send("Bannissement annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
             try { await confirmMsg.delete(); } catch(e){}
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
     }
