@@ -124,7 +124,7 @@
             color: var(--text-color);
         }
 
-        /* --- STYLES AJOUTÉS POUR LE SYSTÈME DE LOGS VISU --- */
+        /* --- STYLES DU SYSTÈME DE LOGS VISU --- */
         .logs-container {
             display: flex;
             gap: 20px;
@@ -267,6 +267,22 @@
     </div>
 
     <script>
+        // Fonction de nettoyage pour transformer la chaîne User-Agent brute en texte propre
+        function parseUserAgent(ua) {
+            if (!ua) return '❓ Appareil Inconnu';
+            const uaLower = ua.toLowerCase();
+            
+            if (uaLower.includes('cron-job')) return '🛠️ Service : Cron-Job.org';
+            if (uaLower.includes('uptimerobot')) return '🤖 Service : UptimeRobot';
+            if (uaLower.includes('iphone') || uaLower.includes('ipad')) return '📱 Mobile : Apple iOS';
+            if (uaLower.includes('android')) return '📱 Mobile : Android';
+            if (uaLower.includes('windows')) return '💻 Appareil : PC (Windows)';
+            if (uaLower.includes('macintosh')) return '💻 Appareil : Mac';
+            if (uaLower.includes('linux')) return '💻 Appareil : Linux';
+            
+            return '🌐 Navigateur Web';
+        }
+
         async function refreshLogs() {
             try {
                 const response = await fetch('/api/logs');
@@ -285,17 +301,21 @@
                     cmdList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>`;
                 }
 
-                // 2. Mise à jour de la liste des visiteurs
+                // 2. Mise à jour de la liste des visiteurs filtrée
                 const visitorList = document.getElementById('visitor-list');
                 if (data.visitors && data.visitors.length > 0) {
                     visitorList.innerHTML = data.visitors.map(v => {
                         const isHumain = v.type.includes('HUMAIN');
                         const badgeColor = isHumain ? 'var(--accent-green)' : 'var(--accent-red)';
+                        
+                        // Nettoyage de la signature brute
+                        const cleanDevice = parseUserAgent(v.device);
+
                         return `<li class="log-item">
                             <span class="log-time">[${v.time}]</span> 
                             <span style="color: ${badgeColor}; font-weight: bold;">${v.type}</span>
                             <div style="color: var(--muted-text); font-size: 0.8rem; margin-top: 2px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.1);">
-                                ${v.device}
+                                ${cleanDevice}
                             </div>
                         </li>`;
                     }).join('');
