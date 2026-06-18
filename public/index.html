@@ -13,6 +13,7 @@
             --accent-green: #00E676;
             --accent-red: #ff3333;
             --accent-orange: #FFA000;
+            --accent-purple: #9B5DE5;
             --muted-text: #8e9297;
         }
 
@@ -229,7 +230,12 @@
                 <p>Permet aux membres dans le salon d'attente d'envoyer une demande de transfert. Crée une alerte sécurisée avec des boutons de validation pour le staff.</p>
             </div>
 
-            <div class="command-card command-card-span">
+            <div class="command-card">
+                <span class="command-badge" style="background-color: var(--accent-purple);">!setupticket</span>
+                <p>Génère l'embed d'assistance fixe doté du bouton permettant aux membres d'ouvrir un ticket de support privé avec l'équipe.</p>
+            </div>
+
+            <div class="command-card command-card-span" style="grid-column: span 2;">
                 <span class="command-badge" style="background-color: var(--accent-red);">!ban @membre</span>
                 <p>Bannit définitivement un membre du serveur. Le bot demande une confirmation explicite (oui/non) dans le salon pour éviter les miss-clics du staff.</p>
             </div>
@@ -267,7 +273,6 @@
     </div>
 
     <script>
-        // Fonction de nettoyage pour transformer la chaîne User-Agent brute en texte propre
         function parseUserAgent(ua) {
             if (!ua) return '❓ Appareil Inconnu';
             const uaLower = ua.toLowerCase();
@@ -288,7 +293,6 @@
                 const response = await fetch('/api/logs');
                 const data = await response.json();
 
-                // 1. Mise à jour de la liste des commandes
                 const cmdList = document.getElementById('command-list');
                 if (data.commands && data.commands.length > 0) {
                     cmdList.innerHTML = data.commands.map(c => 
@@ -301,14 +305,11 @@
                     cmdList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>`;
                 }
 
-                // 2. Mise à jour de la liste des visiteurs filtrée
                 const visitorList = document.getElementById('visitor-list');
                 if (data.visitors && data.visitors.length > 0) {
                     visitorList.innerHTML = data.visitors.map(v => {
                         const isHumain = v.type.includes('HUMAIN');
                         const badgeColor = isHumain ? 'var(--accent-green)' : 'var(--accent-red)';
-                        
-                        // Nettoyage de la signature brute
                         const cleanDevice = parseUserAgent(v.device);
 
                         return `<li class="log-item">
@@ -327,9 +328,8 @@
             }
         }
 
-        // Script d'actualisation automatique toutes les 3 secondes (3000ms)
         setInterval(refreshLogs, 3000);
-        refreshLogs(); // Premier lancement immédiat
+        refreshLogs();
     </script>
 
 </body>
