@@ -119,6 +119,25 @@ client.on('guildMemberAdd', async (member) => {
     if (role) try { await member.roles.add(role); } catch (e) {}
 });
 
+// Détection automatique quand quelqu'un entre dans le vocal d'attente
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    if (newState.channelId === serverConfig.waitingVoiceId && oldState.channelId !== serverConfig.waitingVoiceId) {
+        try {
+            const adminChannel = await newState.guild.channels.fetch(serverConfig.adminTextId);
+            if (adminChannel) {
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`ma_${newState.member.id}`).setLabel('🟢 Accepter').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`md_${newState.member.id}`).setLabel('🔴 Refuser').setStyle(ButtonStyle.Danger)
+                );
+                await adminChannel.send({ 
+                    content: `🔔 **${newState.member.user.username}** vient de rejoindre le salon d'attente !`, 
+                    components: [row] 
+                });
+            }
+        } catch (e) { console.log(e); }
+    }
+});
+
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -161,12 +180,15 @@ client.on('interactionCreate', async (interaction) => {
         const action = parts[0]; const userId = parts[1];
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
 
-        if (!member) return interaction.reply({ content: "❌ Introuvable.", ephemeral: true });
+        if (!member) return interaction.reply({ content: "❌ Introuvable ou parti.", ephemeral: true });
         if (action === 'ma') {
-            if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) return interaction.update({ content: `❌ Plus en vocal.`, components: [] });
-            try { await member.voice.setChannel(serverConfig.privateVoiceId); return interaction.update({ content: `🟢 Transféré.`, components: [] }); } catch (e) {}
+            if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) return interaction.update({ content: `❌ Plus en vocal dans l'attente.`, components: [] });
+            try { 
+                await member.voice.setChannel(serverConfig.privateVoiceId); 
+                return interaction.update({ content: `🟢 **${member.user.username}** a été accepté et déplacé !`, components: [] }); 
+            } catch (e) { return interaction.reply({ content: "❌ Impossible de le déplacer (vérifie mes permissions).", ephemeral: true }); }
         }
-        if (action === 'md') return interaction.update({ content: `🔴 Rejeté.`, components: [] });
+        if (action === 'md') return interaction.update({ content: `🔴 Demande refusée pour **${member.user.username}**.`, components: [] });
     }
 });
 
@@ -185,31 +207,43 @@ client.on('messageCreate', async (message) => {
         try { await message.channel.bulkDelete(amount, true); } catch (err) {}
     }
 
-    // --- COMMANDE !MOOV ---
+    // --- COMMANDE !MOOV (MANUELLE AVEC BOUTONS) ---
     if (command === 'moov') {
-        // Sécurité : Seuls ceux qui ont la permission de déplacer des membres peuvent le faire
         if (!message.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
-            return message.reply("❌ Tu n'as pas la permission requise (`Déplacer des membres`) pour faire cela.");
+            return message.reply("❌ Tu n'as pas la permission d'utiliser cette commande.");
         }
 
-        // On prend la première personne mentionnée dans le message
         const targetMember = message.mentions.members.first();
         if (!targetMember) return message.reply("⚠️ Utilisation correcte : `!moov @pseudo`");
 
-        // On vérifie s'il est bien connecté dans un salon vocal
-        if (!targetMember.voice.channel) {
-            return message.reply(`❌ **${targetMember.user.username}** n'est dans aucun salon vocal.`);
+        if (!targetMember.voice.channel || targetMember.voice.channel.id !== serverConfig.waitingVoiceId) {
+            return message.reply(`❌ **${targetMember.user.username}** doit être connecté dans le salon d'attente pour générer les boutons.`);
         }
 
         try {
-            // On le déplace de force vers l'ID du salon privé défini plus haut
-            await targetMember.voice.setChannel(serverConfig.privateVoiceId);
-            return message.reply(`🟢 **${targetMember.user.username}** a été déplacé.`);
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`ma_${targetMember.id}`).setLabel('🟢 Accepter').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`md_${targetMember.id}`).setLabel('🔴 Refuser').setStyle(ButtonStyle.Danger)
+            );
+
+            // Envoie le message de validation directement dans le salon Moov configuré
+            const adminChannel = await message.guild.channels.fetch(serverConfig.adminTextId);
+            if (adminChannel) {
+                await adminChannel.send({ 
+                    content: `⚡ **Commande manuelle** : Demande de moov relancée pour **${targetMember.user.username}** !`, 
+                    components: [row] 
+                });
+                if (message.channel.id !== serverConfig.adminTextId) {
+                    return message.reply(`✅ Panel de contrôle envoyé dans <#${serverConfig.adminTextId}> !`);
+                }
+            }
         } catch (err) {
             console.error(err);
-            return message.reply("❌ Une erreur est survenue lors du déplacement vocal. Vérifie mes permissions.");
+            return message.reply("❌ Une erreur est survenue.");
         }
     }
 });
+
+client.on('error', console.error);
 
 client.login(process.env.TOKEN);
