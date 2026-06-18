@@ -51,47 +51,32 @@ app.get('/api/logs', (req, res) => {
     } catch (e) {
         totalMembers = "Indisponible";
     }
-
-    res.json({ 
-        commands: commandLogs, 
-        visitors: visitorLogs,
-        memberCount: totalMembers
-    });
+    res.json({ commands: commandLogs, visitors: visitorLogs, memberCount: totalMembers });
 });
 
 app.post('/api/admin/annonce', async (req, res) => {
     const { pin, channelId, text } = req.body;
     if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
-
     try {
         const channel = await client.channels.fetch(channelId);
         if (!channel) return res.json({ success: false, message: "❌ Salon introuvable." });
-
         await channel.send({ content: `📢 @everyone\n\n${text}` });
-        
         logCommand("Dashboard Web", `Annonce brute diffusée dans <#${channelId}>`);
         return res.json({ success: true, message: "✅ Annonce brute diffusée avec mention @everyone !" });
-    } catch (err) {
-        return res.json({ success: false, message: `❌ Erreur : ${err.message}` });
-    }
+    } catch (err) { return res.json({ success: false, message: `❌ Erreur : ${err.message}` }); }
 });
 
 app.post('/api/admin/clear', async (req, res) => {
     const { pin, channelId, amount } = req.body;
     if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
-
     const limit = amount && amount <= 100 ? amount : 20;
-
     try {
         const channel = await client.channels.fetch(channelId);
         if (!channel || !channel.isTextBased()) return res.json({ success: false, message: "❌ Salon textuel invalide." });
-
         await channel.bulkDelete(limit, true);
         logCommand("Dashboard Web", `Purge de ${limit} messages dans <#${channelId}>`);
         return res.json({ success: true, message: `✅ Flux nettoyé (${limit} messages supprimés) !` });
-    } catch (err) {
-        return res.json({ success: false, message: `❌ Erreur : ${err.message}` });
-    }
+    } catch (err) { return res.json({ success: false, message: `❌ Erreur : ${err.message}` }); }
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -107,9 +92,13 @@ const client = new Client({
 });
 
 const serverConfig = {
-    prefix: "!", welcomeRole: "Arrivant", codesChannelId: "1514658424791502848", 
-    waitingVoiceId: "1468303822731612348", privateVoiceId: "1498498611275895005", 
-    adminTextId: "1515043230960324800", ticketCategoryId: "1463929005395808329" 
+    prefix: "!", 
+    welcomeRole: "Arrivant", 
+    codesChannelId: "1514658424791502848", 
+    waitingVoiceId: "1468303822731612348", // Salon vocal d'attente
+    privateVoiceId: "1498498611275895005", // Salon vocal privé
+    adminTextId: "1515043230960324800",    // Salon textuel Moov
+    staffRoleId: "1463629608518815804"      // Rôle Staff à ping
 };
 
 client.on('ready', () => console.log(`🤖 Seimi Engine connecté : ${client.user.tag}`));
@@ -119,25 +108,7 @@ client.on('guildMemberAdd', async (member) => {
     if (role) try { await member.roles.add(role); } catch (e) {}
 });
 
-// Détection automatique quand quelqu'un entre dans le vocal d'attente
-client.on('voiceStateUpdate', async (oldState, newState) => {
-    if (newState.channelId === serverConfig.waitingVoiceId && oldState.channelId !== serverConfig.waitingVoiceId) {
-        try {
-            const adminChannel = await newState.guild.channels.fetch(serverConfig.adminTextId);
-            if (adminChannel) {
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`ma_${newState.member.id}`).setLabel('🟢 Accepter').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId(`md_${newState.member.id}`).setLabel('🔴 Refuser').setStyle(ButtonStyle.Danger)
-                );
-                await adminChannel.send({ 
-                    content: `🔔 **${newState.member.user.username}** vient de rejoindre le salon d'attente !`, 
-                    components: [row] 
-                });
-            }
-        } catch (e) { console.log(e); }
-    }
-});
-
+// GESTION DES BOUTONS ACCEPTER / REFUSER
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -148,50 +119,40 @@ client.on('interactionCreate', async (interaction) => {
         }], ephemeral: true });
     }
 
-    if (interaction.customId === 'btn_open_ticket') {
-        const guild = interaction.guild; const member = interaction.member;
-        const existing = guild.channels.cache.find(c => c.name === `📩-ticket-${member.user.username.toLowerCase()}`);
-        if (existing) return interaction.reply({ content: `⚠️ Flux déjà ouvert : ${existing}`, ephemeral: true });
-
-        await interaction.reply({ content: "⏳ Initialisation...", ephemeral: true });
-        try {
-            const ticketChannel = await guild.channels.create({
-                name: `📩-ticket-${member.user.username}`, type: ChannelType.GuildText, parent: serverConfig.ticketCategoryId || null,
-                permissionOverwrites: [
-                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-                    { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
-                ],
-            });
-            const closeRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('btn_close_ticket').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger));
-            await ticketChannel.send({ content: `👋 ${member} | Support`, components: [closeRow] });
-            return interaction.editReply({ content: `✅ Créé : ${ticketChannel}` });
-        } catch (e) { return interaction.editReply({ content: "❌ Échec." }); }
-    }
-
-    if (interaction.customId === 'btn_close_ticket') {
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return interaction.reply({ content: "❌ Refusé.", ephemeral: true });
-        await interaction.reply({ content: "🔒 Archivage..." });
-        setTimeout(async () => { try { await interaction.channel.delete(); } catch(e) {} }, 5000);
-    }
-
     if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
+        // Sécurité : Seul le staff peut cliquer sur Accepter/Refuser
+        if (!interaction.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
+            return interaction.reply({ content: "❌ Tu n'as pas la permission de valider cette demande.", ephemeral: true });
+        }
+
         const parts = interaction.customId.split('_');
-        const action = parts[0]; const userId = parts[1];
+        const action = parts[0]; 
+        const userId = parts[1];
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
 
-        if (!member) return interaction.reply({ content: "❌ Introuvable ou parti.", ephemeral: true });
+        if (!member) return interaction.update({ content: "❌ Le joueur a quitté le serveur Discord.", components: [] });
+
+        // Bouton OUI (Accepter)
         if (action === 'ma') {
-            if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) return interaction.update({ content: `❌ Plus en vocal dans l'attente.`, components: [] });
+            if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
+                return interaction.update({ content: `❌ **${member.user.username}** n'est plus dans le salon d'attente.`, components: [] });
+            }
             try { 
                 await member.voice.setChannel(serverConfig.privateVoiceId); 
-                return interaction.update({ content: `🟢 **${member.user.username}** a été accepté et déplacé !`, components: [] }); 
-            } catch (e) { return interaction.reply({ content: "❌ Impossible de le déplacer (vérifie mes permissions).", ephemeral: true }); }
+                return interaction.update({ content: `🟢 **${member.user.username}** a été accepté et déplacé par ${interaction.user} !`, components: [] }); 
+            } catch (e) { 
+                return interaction.reply({ content: "❌ Impossible de déplacer le membre (problème de permissions).", ephemeral: true }); 
+            }
         }
-        if (action === 'md') return interaction.update({ content: `🔴 Demande refusée pour **${member.user.username}**.`, components: [] });
+
+        // Bouton NON (Refuser)
+        if (action === 'md') {
+            return interaction.update({ content: `🔴 La demande d'accès pour **${member.user.username}** a été refusée par ${interaction.user}.`, components: [] });
+        }
     }
 });
 
+// GESTION DES COMMANDES TEXTUELLES
 client.on('messageCreate', async (message) => {
     const currentPrefix = serverConfig.prefix;
     if (!message.content.startsWith(currentPrefix) || message.author.bot) return;
@@ -200,46 +161,43 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
     logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
 
-    // --- COMMANDE !CLEAR ---
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]); if (isNaN(amount) || amount < 1 || amount > 100) return;
         try { await message.channel.bulkDelete(amount, true); } catch (err) {}
     }
 
-    // --- COMMANDE !MOOV (MANUELLE AVEC BOUTONS) ---
+    // --- LA COMMANDE !MOOV ENFIN IDENTIQUE À TES SOUVENIRS ---
     if (command === 'moov') {
-        if (!message.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
-            return message.reply("❌ Tu n'as pas la permission d'utiliser cette commande.");
-        }
+        const targetMember = message.member; // C'est l'auteur du message qui fait sa demande !
 
-        const targetMember = message.mentions.members.first();
-        if (!targetMember) return message.reply("⚠️ Utilisation correcte : `!moov @pseudo`");
-
+        // 1. On vérifie s'il est bien dans le salon vocal d'attente
         if (!targetMember.voice.channel || targetMember.voice.channel.id !== serverConfig.waitingVoiceId) {
-            return message.reply(`❌ **${targetMember.user.username}** doit être connecté dans le salon d'attente pour générer les boutons.`);
+            return message.reply(`⚠️ Tu dois être connecté dans le salon vocal d'attente (<#${serverConfig.waitingVoiceId}>) pour faire cette commande !`);
         }
 
         try {
+            // 2. On crée les boutons OUI / NON
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`ma_${targetMember.id}`).setLabel('🟢 Accepter').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`md_${targetMember.id}`).setLabel('🔴 Refuser').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`ma_${targetMember.id}`).setLabel('🟢 Oui, accepter').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`md_${targetMember.id}`).setLabel('🔴 Non, refuser').setStyle(ButtonStyle.Danger)
             );
 
-            // Envoie le message de validation directement dans le salon Moov configuré
+            // 3. On récupère le salon textuel Moov
             const adminChannel = await message.guild.channels.fetch(serverConfig.adminTextId);
             if (adminChannel) {
+                // On envoie la demande avec le PING de ton rôle Staff
                 await adminChannel.send({ 
-                    content: `⚡ **Commande manuelle** : Demande de moov relancée pour **${targetMember.user.username}** !`, 
+                    content: `🔔 <&${serverConfig.staffRoleId}> | **${targetMember.user.username}** demande l'accès au salon privé !`, 
                     components: [row] 
                 });
-                if (message.channel.id !== serverConfig.adminTextId) {
-                    return message.reply(`✅ Panel de contrôle envoyé dans <#${serverConfig.adminTextId}> !`);
-                }
+
+                // Petit message de confirmation poli pour le joueur
+                return message.reply("✅ Ta demande a bien été envoyée au staff. Reste bien dans le salon, ils vont te répondre !");
             }
         } catch (err) {
             console.error(err);
-            return message.reply("❌ Une erreur est survenue.");
+            return message.reply("❌ Une erreur est survenue lors de l'envoi de la demande.");
         }
     }
 });
