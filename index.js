@@ -5,7 +5,8 @@ const {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
-    RoleSelectMenuBuilder 
+    RoleSelectMenuBuilder,
+    ChannelType
 } = require('discord.js');
 const express = require('express');
 const path = require('path');
@@ -14,11 +15,9 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 10000;
 
-// Tableaux de stockage temporaire en mémoire pour le site web
 const commandLogs = [];
 const visitorLogs = [];
 
-// Fonction pour enregistrer les commandes Discord avec l'heure de Paris
 function logCommand(user, command) {
     const time = new Date().toLocaleTimeString('fr-FR', { 
         timeZone: 'Europe/Paris', 
@@ -27,15 +26,12 @@ function logCommand(user, command) {
         second: '2-digit' 
     });
     commandLogs.unshift({ time, user, command });
-    if (commandLogs.length > 10) commandLogs.pop(); // Garde les 10 dernières
+    if (commandLogs.length > 10) commandLogs.pop();
 }
 
-// Middleware pour détecter les visiteurs (Humains vs Bots de ping)
 app.use((req, res, next) => {
     if (req.url === '/' || req.url === '/index.html') {
         const userAgent = req.headers['user-agent'] || '';
-        
-        // Correction de l'heure : Force le fuseau horaire de Paris
         const time = new Date().toLocaleTimeString('fr-FR', { 
             timeZone: 'Europe/Paris', 
             hour: '2-digit', 
@@ -43,22 +39,18 @@ app.use((req, res, next) => {
             second: '2-digit' 
         });
         
-        // Mots-clés pour repérer les systèmes de ping automatiques
         const botKeywords = ['bot', 'spider', 'crawler', 'cron-job', 'uptimerobot', 'axios', 'fetch'];
         const isBot = botKeywords.some(keyword => userAgent.toLowerCase().includes(keyword));
-        
         const visitorType = isBot ? '🤖 BOT / SCRIPT' : '👤 HUMAIN';
 
         visitorLogs.unshift({ time, type: visitorType, device: userAgent });
-        if (visitorLogs.length > 10) visitorLogs.pop(); // Garde les 10 dernières
+        if (visitorLogs.length > 10) visitorLogs.pop();
     }
     next();
 });
 
-// Servir les fichiers statiques du dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Route API pour alimenter le panneau d'affichage du site web
 app.get('/api/logs', (req, res) => {
     res.json({ commands: commandLogs, visitors: visitorLogs });
 });
@@ -81,36 +73,36 @@ const client = new Client({
     ]
 });
 
-// Paramètres de configuration du serveur
 const serverConfig = {
     prefix: "!",
     welcomeRole: "Arrivant",
     codesChannelId: "1514658424791502848", 
     
-    // Configuration du système de douane vocal (!moov)
+    // Configuration Douane
     waitingVoiceId: "1468303822731612348", 
     privateVoiceId: "1498498611275895005", 
-    adminTextId: "1515043230960324800"      
+    adminTextId: "1515043230960324800",
+
+    // Configuration Tickets (ID mis à jour avec le tien)
+    ticketCategoryId: "1463929005395808329" 
 };
 
 client.on('ready', () => {
     console.log(`🤖 Bot Discord connecté : ${client.user.tag}`);
 });
 
-// Attribution automatique du rôle aux nouveaux membres
 client.on('guildMemberAdd', async (member) => {
     const roleNameOrId = serverConfig.welcomeRole; 
     const role = member.guild.roles.cache.get(roleNameOrId) || member.guild.roles.cache.find(r => r.name === roleNameOrId);
-
     if (!role) return;
     try { await member.roles.add(role); } catch (err) { console.error("Erreur rôle auto:", err); }
 });
 
-// Gestion des interactions (Boutons et Menus de sélection)
+// GESTION DES INTERACTIONS (BOUTONS / MENUS)
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton() && !interaction.isRoleSelectMenu()) return;
 
-    // Bouton de récupération des codes Roblox
+    // --- INTERACTION : BOUTON CODES ROBLOX ---
     if (interaction.customId === 'btn_get_codes') {
         const codesEmbed = {
             color: 0x00E676,
@@ -126,7 +118,75 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [codesEmbed], ephemeral: true });
     }
 
-    // Boutons du système de Douane (!moov)
+    // --- INTERACTION : CLIQUE SUR OUVRIR UN TICKET 📨 ---
+    if (interaction.customId === 'btn_open_ticket') {
+        const guild = interaction.guild;
+        const member = interaction.member;
+
+        // Évite qu'un utilisateur ouvre plusieurs tickets en même temps
+        const existingChannel = guild.channels.cache.find(c => c.name === `📩-ticket-${member.user.username.toLowerCase()}`);
+        if (existingChannel) {
+            return interaction.reply({ content: `⚠️ Tu as déjà un ticket ouvert ici : ${existingChannel}`, ephemeral: true });
+        }
+
+        await interaction.reply({ content: "⏳ Création de ton ticket en cours...", ephemeral: true });
+
+        try {
+            const ticketChannel = await guild.channels.create({
+                name: `📩-ticket-${member.user.username}`,
+                type: ChannelType.GuildText,
+                parent: serverConfig.ticketCategoryId || null,
+                permissionOverwrites: [
+                    {
+                        id: guild.roles.everyone.id,
+                        deny: [PermissionFlagsBits.ViewChannel],
+                    },
+                    {
+                        id: member.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+                    },
+                    {
+                        id: client.user.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+                    }
+                ],
+            });
+
+            const welcomeTicketEmbed = {
+                color: 0x9B5DE5,
+                title: '📨 ASSISTANCE - SEIMI BOT',
+                description: `Bonjour ${member},\n\nMerci d'avoir contacté le support. Décris précisément ta demande ou ton problème ci-dessous. Un membre de l'équipe va te prendre en charge rapidement.`,
+                footer: { text: 'Pour fermer ce ticket, cliquez sur le bouton ci-dessous.' },
+                timestamp: new Date()
+            };
+
+            const closeRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('btn_close_ticket').setLabel('Fermer le ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+            );
+
+            await ticketChannel.send({ content: `👋 ${member} | <@&1463629608518815804>`, embeds: [welcomeTicketEmbed], components: [closeRow] });
+            return interaction.editReply({ content: `✅ Ton ticket a été créé avec succès : ${ticketChannel}` });
+
+        } catch (err) {
+            console.error(err);
+            return interaction.editReply({ content: "❌ Une erreur est survenue lors de la création du ticket." });
+        }
+    }
+
+    // --- INTERACTION : FERMETURE DU TICKET 🔒 ---
+    if (interaction.customId === 'btn_close_ticket') {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            return interaction.reply({ content: "❌ Seul un membre du personnel peut clore ce ticket.", ephemeral: true });
+        }
+
+        await interaction.reply({ content: "🔒 Fermeture et nettoyage du salon dans 5 secondes..." });
+        setTimeout(async () => {
+            try { await interaction.channel.delete(); } catch(e) {}
+        }, 5000);
+        return;
+    }
+
+    // --- INTERACTIONS SYSTEME DOUANE VOCALE ---
     if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
         const parts = interaction.customId.split('_');
         const action = parts[0]; 
@@ -137,58 +197,60 @@ client.on('interactionCreate', async (interaction) => {
         const member = await guild.members.fetch(userId).catch(() => null);
         const originChannel = guild.channels.cache.get(originChannelId);
 
-        if (!member) {
-            return interaction.reply({ content: "❌ Le joueur n'est plus présent sur le serveur.", ephemeral: true });
-        }
+        if (!member) return interaction.reply({ content: "❌ Le joueur n'est plus là.", ephemeral: true });
 
-        // Action : Accepter le transfert
         if (action === 'ma') {
             if (!member.voice.channel || member.voice.channel.id !== serverConfig.waitingVoiceId) {
-                if (originChannel) {
-                    originChannel.send(`⚠️ ${member}, ton transfert a été accepté mais tu as quitté le salon vocal d'attente !`).then(m => setTimeout(() => m.delete(), 6000));
-                }
-                return interaction.update({ content: `❌ Demande acceptée mais **${member.user.tag}** n'est plus dans le vocal d'attente.`, embeds: [], components: [] });
+                if (originChannel) originChannel.send(`⚠️ ${member}, transfert accepté mais tu as quitté l'attente !`).then(m => setTimeout(() => m.delete(), 6000));
+                return interaction.update({ content: `❌ Absent du salon vocal d'attente.`, embeds: [], components: [] });
             }
-
             try {
                 await member.voice.setChannel(serverConfig.privateVoiceId);
-                if (originChannel) {
-                    originChannel.send(`✅ ${member}, ta demande a été acceptée ! Tu as été déplacé.`).then(m => setTimeout(() => m.delete(), 6000));
-                }
-                return interaction.update({ content: `🟢 Tu as **accepté** la demande de **${member.user.tag}**. Transfert réussi !`, embeds: [], components: [] });
-            } catch (err) {
-                return interaction.reply({ content: "❌ Impossible de déplacer le membre.", ephemeral: true });
-            }
+                if (originChannel) originChannel.send(`✅ ${member}, ta demande a été acceptée !`).then(m => setTimeout(() => m.delete(), 6000));
+                return interaction.update({ content: `🟢 Demande acceptée pour **${member.user.tag}**.`, embeds: [], components: [] });
+            } catch (err) { return interaction.reply({ content: "❌ Déplacement impossible.", ephemeral: true }); }
         }
 
-        // Action : Refuser le transfert
         if (action === 'md') {
-            if (originChannel) {
-                originChannel.send(`❌ ${member}, désolé, ta demande d'accès au salon privé a été **refusée**.`).then(m => setTimeout(() => m.delete(), 6000));
-            }
-            return interaction.update({ content: `🔴 Tu as **refusé** la demande de **${member.user.tag}**.`, embeds: [], components: [] });
+            if (originChannel) originChannel.send(`❌ ${member}, demande d'accès refusée.`).then(m => setTimeout(() => m.delete(), 6000));
+            return interaction.update({ content: `🔴 Demande refusée pour **${member.user.tag}**.`, embeds: [], components: [] });
         }
     }
 
-    // Sélecteur de rôle dans le panneau !config
     if (interaction.customId === 'cfg_role_select') {
         serverConfig.welcomeRole = interaction.values[0];
-        // On régénère l'affichage mis à jour (déclenché via le menu de sélection de rôles)
         return interaction.update({ content: `✅ Rôle de bienvenue mis à jour !`, components: [] });
     }
 });
 
-// Écouteur de messages et exécution des commandes
+// LISTENER MESSAGES & COMMANDES
 client.on('messageCreate', async (message) => {
     const currentPrefix = serverConfig.prefix;
-
     if (!message.content.startsWith(currentPrefix) || message.author.bot) return;
 
     const args = message.content.slice(currentPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // Envoi immédiat de la commande vers les logs du site web
     logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
+
+    // --- COMMANDE : !SETUPTICKET ---
+    if (command === 'setupticket') {
+        try { await message.delete(); } catch (err) {}
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
+
+        const ticketSetupEmbed = {
+            color: 0x9B5DE5,
+            title: '📩 ASSISTANCE & SUPPORT TECHNIQUE',
+            description: 'Besoin d\'aide, d\'un renseignement ou de signaler un problème ?\n\nCliquez sur le bouton ci-dessous pour ouvrir un salon de discussion privé avec l\'équipe administrative. Soyez clairs dans vos explications.',
+            footer: { text: 'Système d\'aide automatisé Seimi' }
+        };
+
+        const ticketRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('btn_open_ticket').setLabel('Ouvrir un Ticket').setStyle(ButtonStyle.Primary).setEmoji('📨')
+        );
+
+        return message.channel.send({ embeds: [ticketSetupEmbed], components: [ticketRow] });
+    }
 
     // --- COMMANDE : !MOOV ---
     if (command === 'moov') {
@@ -196,11 +258,11 @@ client.on('messageCreate', async (message) => {
         const voiceState = message.member.voice;
 
         if (!voiceState.channel || voiceState.channel.id !== serverConfig.waitingVoiceId) {
-            return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}> pour utiliser cette commande.`)
+            return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}>.`)
                 .then(m => setTimeout(() => m.delete(), 6000));
         }
 
-        message.channel.send(`⏳ **${message.author}**, ton niveau d'accès est en cours de vérification. Patiente ici...`)
+        message.channel.send(`⏳ **${message.author}**, ton niveau d'accès est en cours de vérification.`)
             .then(m => setTimeout(() => m.delete(), 6000));
 
         const adminTextChannel = message.guild.channels.cache.get(serverConfig.adminTextId);
@@ -209,13 +271,12 @@ client.on('messageCreate', async (message) => {
         const requestEmbed = {
             color: 0xFFA000,
             title: '📥 DEMANDE DE TRANSFERT VOCAL',
-            description: `Le joueur **${message.author.tag}** demande la permission de te rejoindre dans ton salon privé.`,
+            description: `Le joueur **${message.author.tag}** demande la permission de te rejoindre.`,
             fields: [
-                { name: '👤 Utilisateur', value: `${message.author} (\`${message.author.id}\`)`, inline: true },
+                { name: '👤 Utilisateur', value: `${message.author}`, inline: true },
                 { name: '🔊 Salon actuel', value: `<#${serverConfig.waitingVoiceId}>`, inline: true }
             ],
-            timestamp: new Date(),
-            footer: { text: 'Système de Douane Seimi' }
+            timestamp: new Date()
         };
 
         const row = new ActionRowBuilder().addComponents(
@@ -223,7 +284,7 @@ client.on('messageCreate', async (message) => {
             new ButtonBuilder().setCustomId(`md_${message.author.id}_${message.channel.id}`).setLabel('Refuser').setStyle(ButtonStyle.Danger).setEmoji('🔴')
         );
 
-        return adminTextChannel.send({ content: `🔔 <@&1463629608518815804> **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
+        return adminTextChannel.send({ content: `🔔 **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
     }
 
     // --- COMMANDE : !SETUPCODES ---
@@ -232,9 +293,9 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const setupEmbed = {
-            color: 0x5865F2,
+            color: 0x00E676,
             title: '🎁 ESPACE DES CODES ROBLOX',
-            description: 'Bienvenue dans l\'espace de récupération des récompenses !\n\nClique sur le bouton vert ci-dessous pour afficher les codes cadeaux actifs du moment. Le message s\'affichera uniquement pour toi.',
+            description: 'Bienvenue dans l\'espace de récupération des récompenses !\n\nClique sur le bouton vert ci-dessous pour afficher les codes cadeaux actifs du moment.',
             footer: { text: 'Seimi Bot Système' }
         };
 
@@ -290,12 +351,13 @@ client.on('messageCreate', async (message) => {
                     color: 0x0099ff,
                     title: '🛠️ GUIDE DE MODÉRATION COMPLET',
                     fields: [
-                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime les messages dans le salon.' },
-                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut temporairement un utilisateur.' },
+                        { name: `🧹 ${serverConfig.prefix}clear [1-100]`, value: 'Supprime les messages.' },
+                        { name: `🤐 ${serverConfig.prefix}mute @membre [temps]`, value: 'Exclut un utilisateur.' },
                         { name: `🚫 ${serverConfig.prefix}ban @membre`, value: 'Bannit définitivement.' },
-                        { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Installe le bouton des codes Roblox.' }
+                        { name: `🎁 ${serverConfig.prefix}setupcodes`, value: 'Bouton des codes.' },
+                        { name: `📨 ${serverConfig.prefix}setupticket`, value: 'Installe le panneau de tickets d\'aide.' }
                     ],
-                    footer: { text: '🔒 Ce guide n\'est visible que par toi.' },
+                    footer: { text: 'Guide privé.' },
                     timestamp: new Date()
                 };
                 return interaction.reply({ embeds: [staffEmbed], ephemeral: true });
@@ -327,7 +389,7 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
-        if (!member) return message.reply("Veuillez mentionner un membre.").then(m => setTimeout(() => m.delete(), 5000));
+        if (!member) return message.reply("Mentionnez un membre.").then(m => setTimeout(() => m.delete(), 5000));
         
         let time = 0;
         switch (duration) {
@@ -336,12 +398,12 @@ client.on('messageCreate', async (message) => {
             case '10m': time = 10 * 60 * 1000; break;
             case '30m': time = 30 * 60 * 1000; break;
             case '1h': time = 60 * 60 * 1000; break;
-            default: return message.reply("Durée invalide (1m, 5m, 10m, 30m, 1h).").then(m => setTimeout(() => m.delete(), 5000));
+            default: return message.reply("Durée invalide.").then(m => setTimeout(() => m.delete(), 5000));
         }
         try {
-            await member.timeout(time, "Mute via commande Seimi");
-            message.channel.send(`🤐 **${member.user.tag}** a été exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
-        } catch (err) { message.reply("Erreur de permissions pour appliquer l'exclusion.").then(m => setTimeout(() => m.delete(), 5000)); }
+            await member.timeout(time, "Mute via Seimi");
+            message.channel.send(`🤐 **${member.user.tag}** exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
+        } catch (err) {}
     }
 
     // --- COMMANDE : !CLEAR ---
@@ -349,7 +411,7 @@ client.on('messageCreate', async (message) => {
         try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
-        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Indiquez un chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
+        if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
         try {
             await message.channel.bulkDelete(amount, true);
             message.channel.send("✅ Suppression effectuée.").then(m => setTimeout(() => m.delete(), 3000));
@@ -373,7 +435,7 @@ client.on('messageCreate', async (message) => {
             
             if (responseMessage.content.toLowerCase() === 'oui') {
                 await member.ban();
-                message.channel.send(`🚫 **${member.user.tag}** banni définitivement.`).then(m => setTimeout(() => m.delete(), 5000));
+                message.channel.send(`🚫 **${member.user.tag}** banni.`).then(m => setTimeout(() => m.delete(), 5000));
             } else { message.channel.send("Bannissement annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
             try { await confirmMsg.delete(); } catch(e){}
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
