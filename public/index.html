@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seimi Bot - Espace Modération</title>
+    <title>Seimi Bot - Dashboard & Modération</title>
     <style>
         :root {
             --bg-color: #0f111a;
@@ -35,22 +35,13 @@
 
         .header {
             text-align: center;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
         }
 
         .header h1 {
             font-size: 2.5rem;
             color: var(--accent-blue);
             margin-bottom: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .header p {
-            color: var(--muted-text);
-            font-size: 1.1rem;
         }
 
         .section-title {
@@ -64,68 +55,76 @@
             gap: 10px;
         }
 
+        /* --- STYLES DU PANNEAU DE CONTROLE (DASHBOARD) --- */
+        .dashboard-box {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .dash-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input, textarea, select {
+            background: #0f111a;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+        }
+
+        .btn-dash {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-dash:hover { background-color: #4752C4; }
+        .btn-danger { background-color: var(--accent-red); }
+        .btn-danger:hover { background-color: #cc0000; }
+
+        /* --- AUTRES STYLES --- */
         .commands-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-            margin-bottom: 30px;
         }
 
         .command-card {
             background-color: var(--card-bg);
             border-radius: 8px;
-            padding: 25px;
+            padding: 20px;
             border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: transform 0.2s;
-        }
-
-        .command-card:hover {
-            transform: translateY(-2px);
         }
 
         .command-badge {
             display: inline-block;
             background-color: var(--accent-blue);
             color: white;
-            padding: 6px 12px;
+            padding: 4px 10px;
             border-radius: 4px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: monospace;
             font-weight: bold;
-            font-size: 1rem;
-            margin-bottom: 15px;
-        }
-
-        .command-card p {
-            margin: 0;
-            color: #b9bbbe;
-            line-height: 1.5;
-            font-size: 0.95rem;
-        }
-
-        .charte-box {
-            background-color: var(--card-bg);
-            border-left: 4px solid var(--accent-blue);
-            padding: 20px;
-            border-radius: 0 8px 8px 0;
-            margin-bottom: 30px;
-        }
-
-        .charte-box ul {
-            margin: 0;
-            padding-left: 20px;
-            color: #b9bbbe;
-        }
-
-        .charte-box li {
             margin-bottom: 10px;
-            line-height: 1.5;
         }
 
-        .charte-box li strong {
-            color: var(--text-color);
-        }
-
-        /* --- STYLES DU SYSTÈME DE LOGS VISU --- */
         .logs-container {
             display: flex;
             gap: 20px;
@@ -139,57 +138,12 @@
             background-color: var(--card-bg);
             border-radius: 8px;
             padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .log-panel h3 {
-            margin-top: 0;
-            font-size: 1.1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 10px;
-            color: #fff;
-        }
-
-        .log-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .log-item {
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .log-time {
-            color: var(--muted-text);
-            font-size: 0.8rem;
-            margin-right: 5px;
-        }
-
-        .log-code {
-            background: #0f111a;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: var(--accent-blue);
-            font-family: monospace;
-        }
-
-        @media (max-width: 768px) {
-            .commands-grid {
-                grid-template-columns: 1fr;
-            }
-            .command-card-span {
-                grid-column: unset !important;
-            }
-            .logs-container {
-                flex-direction: column;
-            }
-        }
+        .log-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
+        .log-item { padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.9rem; }
+        .log-time { color: var(--muted-text); font-size: 0.8rem; margin-right: 5px; }
+        .log-code { background: #0f111a; padding: 2px 6px; border-radius: 4px; color: var(--accent-blue); font-family: monospace; }
     </style>
 </head>
 <body>
@@ -197,94 +151,96 @@
     <div class="container">
         
         <div class="header">
-            <h1>🛠️ SEIMI - ESPACE MODÉRATION</h1>
-            <p>Documentation officielle et outils réservés au personnel du serveur</p>
+            <h1>⚙️ SEIMI - PANNEAU DE CONTRÔLE ACTIF</h1>
+            <p>Pilote ton serveur Discord en temps réel depuis ton navigateur</p>
         </div>
 
-        <h2 class="section-title">📄 Commandes de Modération</h2>
-        
-        <div class="commands-grid">
-            
-            <div class="command-card">
-                <span class="command-badge">!config</span>
-                <p>Ouvre le panneau de configuration interactif (Boutons et sélecteur de rôles) pour modifier les paramètres système du bot et accéder au menu de Modération.</p>
+        <h2 class="section-title">🎛️ Télécommande de Gestion</h2>
+        <div class="dashboard-box">
+            <div class="dash-row">
+                <input type="password" id="admin-pin" placeholder="🔑 Entrer le Code PIN Secret" style="flex: 1; max-width: 250px;">
+                <span id="pin-status" style="align-self: center; font-size: 0.9rem; color: var(--muted-text);">Statut : Verrouillé</span>
             </div>
 
-            <div class="command-card">
-                <span class="command-badge">!clear [1-100]</span>
-                <p>Supprime instantanément le nombre de messages spécifié dans le salon actuel (ignore automatiquement les messages datant de plus de 14 jours).</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+
+            <h3>📢 Lancer une annonce sur le serveur</h3>
+            <div class="dash-row" style="flex-direction: column; gap: 10px;">
+                <input type="text" id="ann-channel" placeholder="ID du salon Discord (ex: 1517108589490344036)">
+                <textarea id="ann-text" rows="3" placeholder="Écris ton annonce ici... Le bot l'enverra dans un superbe embed violet."></textarea>
+                <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'Annonce</button>
             </div>
 
-            <div class="command-card">
-                <span class="command-badge">!mute @membre [temps]</span>
-                <p>Exclut temporairement un utilisateur du serveur. Les durées acceptées par le système sont : 1m, 5m, 10m, 30m, ou 1h.</p>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+
+            <h3>🧹 Nettoyage Rapide</h3>
+            <div class="dash-row">
+                <input type="text" id="clear-channel" placeholder="ID du salon à nettoyer">
+                <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
             </div>
-
-            <div class="command-card">
-                <span class="command-badge" style="background-color: var(--accent-green);">!setupcodes</span>
-                <p>Installe le message d'accueil fixe avec le bouton cliquable secret permettant aux membres de récupérer leurs codes Roblox de manière éphémère.</p>
-            </div>
-
-            <div class="command-card">
-                <span class="command-badge" style="background-color: var(--accent-orange);">!moov</span>
-                <p>Permet aux membres dans le salon d'attente d'envoyer une demande de transfert. Crée une alerte sécurisée avec des boutons de validation pour le staff.</p>
-            </div>
-
-            <div class="command-card">
-                <span class="command-badge" style="background-color: var(--accent-purple);">!setupticket</span>
-                <p>Génère l'embed d'assistance fixe doté du bouton permettant aux membres d'ouvrir un ticket de support privé avec l'équipe.</p>
-            </div>
-
-            <div class="command-card command-card-span" style="grid-column: span 2;">
-                <span class="command-badge" style="background-color: var(--accent-red);">!ban @membre</span>
-                <p>Bannit définitivement un membre du serveur. Le bot demande une confirmation explicite (oui/non) dans le salon pour éviter les miss-clics du staff.</p>
-            </div>
-
-        </div>
-
-        <h2 class="section-title">⚖️ Charte d'utilisation du Staff</h2>
-        <div class="charte-box">
-            <ul>
-                <li><strong>Exemplarité :</strong> Les modérateurs doivent respecter le règlement du serveur à la lettre.</li>
-                <li><strong>Sécurité :</strong> Ne partagez jamais l'accès aux commandes d'administration ou aux configurations sensibles.</li>
-                <li><strong>Propreté :</strong> Veillez à utiliser les fonctionnalités de suppression automatique pour garder les salons lisibles.</li>
-            </ul>
         </div>
 
         <h2 class="section-title">📊 Moniteur d'Activité en Direct</h2>
         <div class="logs-container">
-            
             <div class="log-panel">
                 <h3>💬 Dernières Commandes Discord</h3>
-                <ul id="command-list" class="log-list">
-                    <li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>
-                </ul>
+                <ul id="command-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande...</li></ul>
             </div>
-
             <div class="log-panel">
                 <h3>🌐 Trafic du Site (Humains &amp; Bots)</h3>
-                <ul id="visitor-list" class="log-list">
-                    <li class="log-item" style="color: var(--muted-text);">🔍 En attente de connexions...</li>
-                </ul>
+                <ul id="visitor-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">🔍 En attente...</li></ul>
             </div>
+        </div>
 
+        <h2 class="section-title">📄 Rappel des Commandes</h2>
+        <div class="commands-grid">
+            <div class="command-card"><span class="command-badge">!config</span><p>Modifie les paramètres systèmes du bot.</p></div>
+            <div class="command-card"><span class="command-badge">!setupticket</span><p>Installe le panneau des tickets.</p></div>
         </div>
 
     </div>
 
     <script>
+        // Fonctions pour communiquer avec l'API active du Bot
+        async function sendAnnonce() {
+            const pin = document.getElementById('admin-pin').value;
+            const channelId = document.getElementById('ann-channel').value;
+            const text = document.getElementById('ann-text').value;
+
+            if(!pin || !channelId || !text) return alert("Veuillez remplir tous les champs.");
+
+            const res = await fetch('/api/admin/annonce', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin, channelId, text })
+            });
+            const data = await res.json();
+            alert(data.message);
+            if(data.success) { document.getElementById('ann-text').value = ""; }
+        }
+
+        async function triggerClear() {
+            const pin = document.getElementById('admin-pin').value;
+            const channelId = document.getElementById('clear-channel').value;
+
+            if(!pin || !channelId) return alert("Indiquez le code PIN et l'ID du salon.");
+
+            const res = await fetch('/api/admin/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin, channelId })
+            });
+            const data = await res.json();
+            alert(data.message);
+        }
+
         function parseUserAgent(ua) {
             if (!ua) return '❓ Appareil Inconnu';
             const uaLower = ua.toLowerCase();
-            
             if (uaLower.includes('cron-job')) return '🛠️ Service : Cron-Job.org';
             if (uaLower.includes('uptimerobot')) return '🤖 Service : UptimeRobot';
-            if (uaLower.includes('iphone') || uaLower.includes('ipad')) return '📱 Mobile : Apple iOS';
-            if (uaLower.includes('android')) return '📱 Mobile : Android';
             if (uaLower.includes('windows')) return '💻 Appareil : PC (Windows)';
-            if (uaLower.includes('macintosh')) return '💻 Appareil : Mac';
-            if (uaLower.includes('linux')) return '💻 Appareil : Linux';
-            
+            if (uaLower.includes('iphone') || uaLower.includes('android')) return '📱 Smartphone';
             return '🌐 Navigateur Web';
         }
 
@@ -296,13 +252,8 @@
                 const cmdList = document.getElementById('command-list');
                 if (data.commands && data.commands.length > 0) {
                     cmdList.innerHTML = data.commands.map(c => 
-                        `<li class="log-item">
-                            <span class="log-time">[${c.time}]</span> 
-                            <strong>${c.user}</strong> a utilisé <span class="log-code">${c.command}</span>
-                        </li>`
+                        `<li class="log-item"><span class="log-time">[${c.time}]</span> <strong>${c.user}</strong>: <span class="log-code">${c.command}</span></li>`
                     ).join('');
-                } else {
-                    cmdList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">✍️ Aucune commande enregistrée pour le moment.</li>`;
                 }
 
                 const visitorList = document.getElementById('visitor-list');
@@ -310,27 +261,14 @@
                     visitorList.innerHTML = data.visitors.map(v => {
                         const isHumain = v.type.includes('HUMAIN');
                         const badgeColor = isHumain ? 'var(--accent-green)' : 'var(--accent-red)';
-                        const cleanDevice = parseUserAgent(v.device);
-
-                        return `<li class="log-item">
-                            <span class="log-time">[${v.time}]</span> 
-                            <span style="color: ${badgeColor}; font-weight: bold;">${v.type}</span>
-                            <div style="color: var(--muted-text); font-size: 0.8rem; margin-top: 2px; padding-left: 5px; border-left: 1px solid rgba(255,255,255,0.1);">
-                                ${cleanDevice}
-                            </div>
-                        </li>`;
+                        return `<li class="log-item"><span class="log-time">[${v.time}]</span> <span style="color: ${badgeColor}; font-weight: bold;">${v.type}</span><br><small style="color: var(--muted-text);">${parseUserAgent(v.device)}</small></li>`;
                     }).join('');
-                } else {
-                    visitorList.innerHTML = `<li class="log-item" style="color: var(--muted-text);">🔍 En attente de connexions...</li>`;
                 }
-            } catch (err) {
-                console.error("Erreur lors de la synchronisation des données de monitoring :", err);
-            }
+            } catch (err) {}
         }
 
         setInterval(refreshLogs, 3000);
         refreshLogs();
     </script>
-
 </body>
 </html>
