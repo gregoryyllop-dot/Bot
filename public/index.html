@@ -35,6 +35,7 @@
         .header {
             text-align: center;
             margin-bottom: 40px;
+            position: relative;
         }
 
         .header h1 {
@@ -44,6 +45,20 @@
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
             font-weight: 800;
+        }
+
+        /* Petit badge stylé pour le compteur de membres */
+        .member-counter {
+            display: inline-block;
+            background: rgba(69, 243, 255, 0.05);
+            border: 1px solid rgba(69, 243, 255, 0.2);
+            color: var(--accent-blue);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-top: 5px;
+            box-shadow: 0 0 10px rgba(69, 243, 255, 0.1);
         }
 
         .section-title {
@@ -227,6 +242,7 @@
         <div class="header">
             <h1>⚙️ SEIMI - STUDIO DE CONTRÔLE</h1>
             <p>Pilote ton infrastructure Discord de manière sécurisée</p>
+            <div class="member-counter">👥 Membres sur le serveur : <span id="member-count">Chargement...</span></div>
         </div>
 
         <h2 class="section-title">🎛️ Console d'Administration</h2>
@@ -245,7 +261,6 @@
             </div>
 
             <div id="admin-controls">
-                
                 <div class="admin-field-group">
                     <h3>📢 Publication d'Annonce Générale</h3>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -413,6 +428,11 @@
             try {
                 const response = await fetch('/api/logs');
                 const data = await response.json();
+
+                // On met à jour le compteur de membres en haut
+                if (data.memberCount !== undefined) {
+                    document.getElementById('member-count').innerText = data.memberCount;
+                }
 
                 const cmdList = document.getElementById('command-list');
                 if (data.commands && data.commands.length > 0) {
