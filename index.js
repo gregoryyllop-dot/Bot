@@ -83,7 +83,7 @@ const serverConfig = {
     privateVoiceId: "1498498611275895005", 
     adminTextId: "1515043230960324800",
 
-    // Configuration Tickets (ID mis à jour avec le tien)
+    // Configuration Tickets
     ticketCategoryId: "1463929005395808329" 
 };
 
@@ -123,7 +123,6 @@ client.on('interactionCreate', async (interaction) => {
         const guild = interaction.guild;
         const member = interaction.member;
 
-        // Évite qu'un utilisateur ouvre plusieurs tickets en même temps
         const existingChannel = guild.channels.cache.find(c => c.name === `📩-ticket-${member.user.username.toLowerCase()}`);
         if (existingChannel) {
             return interaction.reply({ content: `⚠️ Tu as déjà un ticket ouvert ici : ${existingChannel}`, ephemeral: true });
@@ -235,7 +234,6 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !SETUPTICKET ---
     if (command === 'setupticket') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const ticketSetupEmbed = {
@@ -249,15 +247,22 @@ client.on('messageCreate', async (message) => {
             new ButtonBuilder().setCustomId('btn_open_ticket').setLabel('Ouvrir un Ticket').setStyle(ButtonStyle.Primary).setEmoji('📨')
         );
 
-        return message.channel.send({ embeds: [ticketSetupEmbed], components: [ticketRow] });
+        // On envoie le panneau de ticket
+        await message.channel.send({ embeds: [ticketSetupEmbed], components: [ticketRow] });
+        
+        // Sécurité renforcée : On supprime le message !setupticket de l'admin après l'envoi
+        setTimeout(async () => {
+            try { await message.delete(); } catch (err) { console.log("Impossible de supprimer le message d'activation, vérifie les permissions du bot."); }
+        }, 1000);
+        return;
     }
 
     // --- COMMANDE : !MOOV ---
     if (command === 'moov') {
-        try { await message.delete(); } catch (err) {}
         const voiceState = message.member.voice;
 
         if (!voiceState.channel || voiceState.channel.id !== serverConfig.waitingVoiceId) {
+            try { await message.delete(); } catch(e){}
             return message.channel.send(`⚠️ **${message.author}**, tu dois être dans le salon vocal d'attente <#${serverConfig.waitingVoiceId}>.`)
                 .then(m => setTimeout(() => m.delete(), 6000));
         }
@@ -284,12 +289,13 @@ client.on('messageCreate', async (message) => {
             new ButtonBuilder().setCustomId(`md_${message.author.id}_${message.channel.id}`).setLabel('Refuser').setStyle(ButtonStyle.Danger).setEmoji('🔴')
         );
 
-        return adminTextChannel.send({ content: `🔔 **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
+        await adminTextChannel.send({ content: `🔔 **Nouvelle demande reçue !**`, embeds: [requestEmbed], components: [row] });
+        try { await message.delete(); } catch(e){}
+        return;
     }
 
     // --- COMMANDE : !SETUPCODES ---
     if (command === 'setupcodes') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const setupEmbed = {
@@ -302,12 +308,13 @@ client.on('messageCreate', async (message) => {
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('btn_get_codes').setLabel('Récupérer les codes').setStyle(ButtonStyle.Success).setEmoji('🎮')
         );
-        return message.channel.send({ embeds: [setupEmbed], components: [row] });
+        await message.channel.send({ embeds: [setupEmbed], components: [row] });
+        setTimeout(async () => { try { await message.delete(); } catch(e){} }, 1000);
+        return;
     }
 
     // --- COMMANDE : !CONFIG ---
     if (command === 'config') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return;
 
         const getRoleDisplay = () => {
@@ -336,6 +343,8 @@ client.on('messageCreate', async (message) => {
         );
 
         const panelMessage = await message.channel.send({ embeds: [generateConfigEmbed()], components: [mainRow] });
+        setTimeout(async () => { try { await message.delete(); } catch(e){} }, 1000);
+
         const collector = panelMessage.createMessageComponentCollector({ time: 60000 });
 
         collector.on('collect', async (interaction) => {
@@ -385,7 +394,6 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !MUTE ---
     if (command === 'mute') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return;
         const member = message.mentions.members.first();
         const duration = args[1];
@@ -403,12 +411,12 @@ client.on('messageCreate', async (message) => {
         try {
             await member.timeout(time, "Mute via Seimi");
             message.channel.send(`🤐 **${member.user.tag}** exclu pour **${duration}**.`).then(m => setTimeout(() => m.delete(), 5000));
+            setTimeout(async () => { try { await message.delete(); } catch(e){} }, 1000);
         } catch (err) {}
     }
 
     // --- COMMANDE : !CLEAR ---
     if (command === 'clear') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]);
         if (isNaN(amount) || amount < 1 || amount > 100) return message.reply("Chiffre entre 1 et 100.").then(m => setTimeout(() => m.delete(), 5000));
@@ -420,7 +428,6 @@ client.on('messageCreate', async (message) => {
 
     // --- COMMANDE : !BAN ---
     if (command === 'ban') {
-        try { await message.delete(); } catch (err) {}
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return;
         const member = message.mentions.members.first();
         if (!member || member.id === message.author.id || !member.bannable) return;
@@ -438,6 +445,7 @@ client.on('messageCreate', async (message) => {
                 message.channel.send(`🚫 **${member.user.tag}** banni.`).then(m => setTimeout(() => m.delete(), 5000));
             } else { message.channel.send("Bannissement annulé.").then(m => setTimeout(() => m.delete(), 5000)); }
             try { await confirmMsg.delete(); } catch(e){}
+            setTimeout(async () => { try { await message.delete(); } catch(e){} }, 1000);
         } catch (err) { try { await confirmMsg.delete(); } catch(e){} }
     }
 });
