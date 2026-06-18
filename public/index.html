@@ -57,22 +57,25 @@
 
         .dashboard-box {
             background-color: var(--card-bg);
-            border-radius: 8px;
-            padding: 25px;
+            border-radius: 12px;
+            padding: 30px;
             border: 1px solid rgba(255, 255, 255, 0.05);
             margin-bottom: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
 
-        .dash-row {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+        /* Style amélioré pour la zone d'authentification */
+        #auth-area {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 15px;
         }
 
         .pin-container {
             position: relative;
-            max-width: 280px;
+            max-width: 300px;
             width: 100%;
             display: flex;
             align-items: center;
@@ -80,28 +83,52 @@
 
         .btn-eye {
             position: absolute;
-            right: 10px;
+            right: 12px;
             background: none;
             border: none;
             color: var(--muted-text);
             cursor: pointer;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .btn-eye:hover {
-            color: #fff;
+        .btn-eye:hover { color: #fff; }
+
+        /* Cases d'administration au design plus moderne */
+        .admin-field-group {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-blue);
+            margin-bottom: 20px;
+        }
+        
+        .field-group-danger {
+            border-left-color: var(--accent-red);
+        }
+
+        .admin-field-group h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         input, textarea {
             background: #0f111a;
             border: 1px solid rgba(255,255,255,0.1);
             color: #fff;
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px;
+            border-radius: 6px;
             font-size: 0.95rem;
             width: 100%;
             box-sizing: border-box;
+            transition: border-color 0.2s;
         }
 
         input:focus, textarea:focus {
@@ -113,16 +140,17 @@
             background-color: var(--accent-blue);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 24px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: background 0.2s;
+            transition: background 0.2s, opacity 0.2s;
         }
 
         .btn-dash:hover { background-color: #4752C4; }
         .btn-danger { background-color: var(--accent-red); }
         .btn-danger:hover { background-color: #cc0000; }
+        .btn-dash:disabled { opacity: 0.5; cursor: not-allowed; }
 
         #admin-controls { display: none; }
 
@@ -131,7 +159,7 @@
             font-weight: bold;
             padding: 15px;
             background: rgba(255, 160, 0, 0.1);
-            border-radius: 4px;
+            border-radius: 6px;
             text-align: center;
             border: 1px dashed var(--accent-orange);
         }
@@ -194,42 +222,45 @@
 
         <h2 class="section-title">🎛️ Télécommande de Gestion</h2>
         <div class="dashboard-box">
-            <div class="dash-row" style="align-items: center;">
-                <div class="pin-container">
-                    <input type="password" id="admin-pin" oninput="checkPin()" placeholder="🔑 Entrer le Code PIN Secret">
-                    <button class="btn-eye" type="button" onclick="togglePinVisibility()">👁️</button>
+            
+            <div id="auth-area">
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+                    <div class="pin-container">
+                        <input type="password" id="admin-pin" oninput="checkPin()" placeholder="🔑 Entrer le Code PIN Secret">
+                        <button class="btn-eye" type="button" onclick="togglePinVisibility()" id="eye-icon">🙈</button>
+                    </div>
+                    <span id="pin-status" style="font-weight: bold; font-size: 0.95rem; color: var(--accent-red);">🔒 Statut : Verrouillé</span>
                 </div>
-                <span id="pin-status" style="font-weight: bold; font-size: 0.95rem; color: var(--accent-red);">🔒 Statut : Verrouillé</span>
-            </div>
-
-            <div id="lock-notice">
-                ⚠️ Les outils de gestion en direct et le guide des commandes admin sont masqués. Entrez le code PIN secret pour déverrouiller.
+                <div id="lock-notice">
+                    ⚠️ Entrez le code PIN pour déverrouiller les commandes de modération.
+                </div>
             </div>
 
             <div id="admin-controls">
-                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
-
-                <h3>📢 Lancer une annonce sur le serveur</h3>
-                <div class="dash-row" style="flex-direction: column; gap: 10px;">
-                    <input type="text" id="ann-channel" placeholder="ID du salon Discord (ex: 1517108589490344036)">
-                    <textarea id="ann-text" rows="3" placeholder="Écris ton annonce ici... Le bot l'enverra dans un superbe embed violet."></textarea>
-                    <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'Annonce</button>
+                
+                <div class="admin-field-group">
+                    <h3>📢 Lancer une annonce sur le serveur</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <input type="text" id="ann-channel" value="1463930980845748431" placeholder="ID du salon Discord" style="color: var(--muted-text); font-family: monospace;">
+                        <textarea id="ann-text" rows="3" placeholder="Écris ton annonce officielle ici... Elle sera envoyée sous forme d'un bel embed violet."></textarea>
+                        <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'Annonce</button>
+                    </div>
                 </div>
 
-                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
-
-                <h3>🧹 Nettoyage Rapide</h3>
-                <div class="dash-row" style="align-items: center;">
-                    <input type="text" id="clear-channel" placeholder="ID du salon à nettoyer" style="max-width: 300px;">
-                    <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
+                <div class="admin-field-group field-group-danger">
+                    <h3>🧹 Nettoyage Rapide de Salon</h3>
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="clear-channel" placeholder="ID du salon Discord à clear" style="max-width: 350px; font-family: monospace;">
+                        <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
+                    </div>
                 </div>
 
-                <h3 style="color: var(--accent-red); margin-top: 30px;">🛠️ Guide des Commandes Admin (Discord)</h3>
+                <h3 style="color: var(--accent-red); margin-top: 30px; padding-left: 5px;">🛠️ Commandes Administrateur In-Game</h3>
                 <div class="commands-grid">
-                    <div class="command-card"><span class="command-badge badge-admin">!clear [1-100]</span><p>Supprime instantanément un nombre précis de messages dans le salon.</p></div>
-                    <div class="command-card"><span class="command-badge badge-admin">!mute @membre [1m/5m/10m/30m/1h]</span><p>Exclut temporairement un utilisateur du texte et du vocal.</p></div>
-                    <div class="command-card"><span class="command-badge badge-admin">!ban @membre</span><p>Bannit définitivement un utilisateur avec confirmation de sécurité (oui/non).</p></div>
-                    <div class="command-card"><span class="command-badge badge-admin">!config</span><p>Ouvre le panneau de configuration du bot (préfixe, rôles, etc.).</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!clear [1-100]</span><p>Nettoie le chat.</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!mute @membre [temps]</span><p>Exclut temporairement.</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!ban @membre</span><p>Bannit définitivement.</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!config</span><p>Modifie les paramètres.</p></div>
                 </div>
             </div>
         </div>
@@ -250,46 +281,95 @@
 
     <script>
         const SECRET_PIN = "06122023A";
+        let validPinFound = ""; // Stocke temporairement le code validé
+        
+        // Variables pour la protection Anti-BruteForce
+        let failuresCount = 0;
+        let isLockedOut = false;
 
         function togglePinVisibility() {
             const pinInput = document.getElementById('admin-pin');
+            const eyeIcon = document.getElementById('eye-icon');
             if (pinInput.type === "password") {
                 pinInput.type = "text";
+                eyeIcon.innerHTML = "👁️"; // Œil ouvert
             } else {
                 pinInput.type = "password";
+                eyeIcon.innerHTML = "🙈"; // Œil fermé
             }
         }
 
         function checkPin() {
-            const pinInput = document.getElementById('admin-pin').value;
-            const statusSpan = document.getElementById('pin-status');
-            const lockNotice = document.getElementById('lock-notice');
-            const adminControls = document.getElementById('admin-controls');
+            if (isLockedOut) return;
 
-            if (pinInput === SECRET_PIN) {
-                statusSpan.innerHTML = "🔓 Statut : Accès Autorisé";
-                statusSpan.style.color = "var(--accent-green)";
-                lockNotice.style.display = "none";
-                adminControls.style.display = "block";
-            } else {
-                statusSpan.innerHTML = "🔒 Statut : Verrouillé";
-                statusSpan.style.color = "var(--accent-red)";
-                lockNotice.style.display = "block";
-                adminControls.style.display = "none";
+            const pinInput = document.getElementById('admin-pin');
+            const statusSpan = document.getElementById('pin-status');
+            const authArea = document.getElementById('auth-area');
+            const adminControls = document.getElementById('admin-controls');
+            const value = pinInput.value;
+
+            // Si la longueur correspond au vrai code, on vérifie
+            if (value.length >= SECRET_PIN.length) {
+                if (value === SECRET_PIN) {
+                    validPinFound = value;
+                    failuresCount = 0;
+                    
+                    // Effet magique : La zone de saisie disparaît complètement pour clean la zone !
+                    authArea.style.display = "none"; 
+                    adminControls.style.display = "block"; // On affiche le panel complet
+                } else {
+                    failuresCount++;
+                    pinInput.value = ""; // On efface la mauvaise saisie
+                    
+                    if (failuresCount >= 3) {
+                        triggerLockout();
+                    } else {
+                        statusSpan.innerHTML = `❌ Code Faux ! (Essai ${failuresCount}/3)`;
+                        statusSpan.style.color = "var(--accent-red)";
+                    }
+                }
             }
         }
 
+        function triggerLockout() {
+            isLockedOut = true;
+            const pinInput = document.getElementById('admin-pin');
+            const statusSpan = document.getElementById('pin-status');
+            const lockNotice = document.getElementById('lock-notice');
+
+            pinInput.disabled = true;
+            statusSpan.innerHTML = "🚨 SITE BLOQUÉ";
+            statusSpan.style.color = "var(--accent-red)";
+            
+            let timeLeft = 300; // 5 minutes en secondes
+            const interval = setInterval(() => {
+                timeLeft--;
+                let mins = Math.floor(timeLeft / 60);
+                let secs = timeLeft % 60;
+                lockNotice.innerHTML = `🚫 **Sécurité activée : 3 échecs.** Trop de tentatives infructueuses. Veuillez patienter ${mins}m ${secs}s avant de réessayer.`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    isLockedOut = false;
+                    failuresCount = 0;
+                    pinInput.disabled = false;
+                    lockNotice.innerHTML = "⚠️ Entrez le code PIN pour déverrouiller les commandes de modération.";
+                    statusSpan.innerHTML = "🔒 Statut : Verrouillé";
+                    statusSpan.style.color = "var(--accent-red)";
+                }
+            }, 1000);
+        }
+
         async function sendAnnonce() {
-            const pin = document.getElementById('admin-pin').value;
             const channelId = document.getElementById('ann-channel').value;
             const text = document.getElementById('ann-text').value;
 
-            if(!pin || !channelId || !text) return alert("Veuillez remplir tous les champs.");
+            if(!validPinFound || !channelId || !text) return alert("Veuillez remplir le texte de l'annonce.");
 
             const res = await fetch('/api/admin/annonce', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin, channelId, text })
+                body: JSON.stringify({ pin: validPinFound, channelId, text })
             });
             const data = await res.json();
             alert(data.message);
@@ -297,18 +377,18 @@
         }
 
         async function triggerClear() {
-            const pin = document.getElementById('admin-pin').value;
             const channelId = document.getElementById('clear-channel').value;
 
-            if(!pin || !channelId) return alert("Indiquez le code PIN et l'ID du salon.");
+            if(!validPinFound || !channelId) return alert("Indiquez l'ID du salon à nettoyer.");
 
             const res = await fetch('/api/admin/clear', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin, channelId })
+                body: JSON.stringify({ pin: validPinFound, channelId })
             });
             const data = await res.json();
             alert(data.message);
+            if(data.success) { document.getElementById('clear-channel').value = ""; }
         }
 
         function parseUserAgent(ua) {
