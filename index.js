@@ -43,9 +43,24 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('/api/logs', (req, res) => res.json({ commands: commandLogs, visitors: visitorLogs }));
 
-// ROUTE ANNONCE : Changée pour envoyer en texte brut avec ping @everyone
+// On renvoie le compte total de membres avec l'API des logs
+app.get('/api/logs', (req, res) => {
+    let totalMembers = 0;
+    try {
+        // Calcule le total cumulé de membres sur les serveurs où se trouve le bot
+        totalMembers = client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0);
+    } catch (e) {
+        totalMembers = "Indisponible";
+    }
+
+    res.json({ 
+        commands: commandLogs, 
+        visitors: visitorLogs,
+        memberCount: totalMembers // Injecté directement !
+    });
+});
+
 app.post('/api/admin/annonce', async (req, res) => {
     const { pin, channelId, text } = req.body;
     if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
@@ -54,7 +69,6 @@ app.post('/api/admin/annonce', async (req, res) => {
         const channel = await client.channels.fetch(channelId);
         if (!channel) return res.json({ success: false, message: "❌ Salon introuvable." });
 
-        // Envoi en message simple avec la mention everyone en clair
         await channel.send({ content: `📢 @everyone\n\n${text}` });
         
         logCommand("Dashboard Web", `Annonce brute diffusée dans <#${channelId}>`);
@@ -64,7 +78,6 @@ app.post('/api/admin/annonce', async (req, res) => {
     }
 });
 
-// ROUTE CLEAR : Adaptée pour recevoir la quantité exacte ("amount") depuis l'interface
 app.post('/api/admin/clear', async (req, res) => {
     const { pin, channelId, amount } = req.body;
     if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
@@ -172,7 +185,6 @@ client.on('messageCreate', async (message) => {
         let amount = parseInt(args[0]); if (isNaN(amount) || amount < 1 || amount > 100) return;
         try { await message.channel.bulkDelete(amount, true); } catch (err) {}
     }
-    // Reste de tes commandes Discord inchangées...
 });
 
 client.login(process.env.TOKEN);
