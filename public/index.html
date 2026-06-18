@@ -70,6 +70,29 @@
             flex-wrap: wrap;
         }
 
+        .pin-container {
+            position: relative;
+            max-width: 280px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        .btn-eye {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--muted-text);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 5px;
+        }
+
+        .btn-eye:hover {
+            color: #fff;
+        }
+
         input, textarea {
             background: #0f111a;
             border: 1px solid rgba(255,255,255,0.1);
@@ -101,10 +124,7 @@
         .btn-danger { background-color: var(--accent-red); }
         .btn-danger:hover { background-color: #cc0000; }
 
-        /* Zone admin masquée par défaut */
-        #admin-controls {
-            display: none;
-        }
+        #admin-controls { display: none; }
 
         #lock-notice {
             color: var(--accent-orange);
@@ -115,6 +135,32 @@
             text-align: center;
             border: 1px dashed var(--accent-orange);
         }
+
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .command-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .command-badge {
+            display: inline-block;
+            background-color: var(--accent-blue);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .badge-admin { background-color: var(--accent-red); }
 
         .logs-container {
             display: flex;
@@ -148,13 +194,16 @@
 
         <h2 class="section-title">🎛️ Télécommande de Gestion</h2>
         <div class="dashboard-box">
-            <div class="dash-row">
-                <input type="password" id="admin-pin" oninput="checkPin()" placeholder="🔑 Entrer le Code PIN Secret" style="max-width: 250px;">
-                <span id="pin-status" style="align-self: center; font-weight: bold; font-size: 0.95rem; color: var(--accent-red);">🔒 Statut : Verrouillé</span>
+            <div class="dash-row" style="align-items: center;">
+                <div class="pin-container">
+                    <input type="password" id="admin-pin" oninput="checkPin()" placeholder="🔑 Entrer le Code PIN Secret">
+                    <button class="btn-eye" type="button" onclick="togglePinVisibility()">👁️</button>
+                </div>
+                <span id="pin-status" style="font-weight: bold; font-size: 0.95rem; color: var(--accent-red);">🔒 Statut : Verrouillé</span>
             </div>
 
             <div id="lock-notice">
-                ⚠️ Les commandes de la télécommande sont masquées. Entrez le code PIN secret pour déverrouiller les outils de modération.
+                ⚠️ Les outils de gestion en direct et le guide des commandes admin sont masqués. Entrez le code PIN secret pour déverrouiller.
             </div>
 
             <div id="admin-controls">
@@ -173,6 +222,14 @@
                 <div class="dash-row" style="align-items: center;">
                     <input type="text" id="clear-channel" placeholder="ID du salon à nettoyer" style="max-width: 300px;">
                     <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
+                </div>
+
+                <h3 style="color: var(--accent-red); margin-top: 30px;">🛠️ Guide des Commandes Admin (Discord)</h3>
+                <div class="commands-grid">
+                    <div class="command-card"><span class="command-badge badge-admin">!clear [1-100]</span><p>Supprime instantanément un nombre précis de messages dans le salon.</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!mute @membre [1m/5m/10m/30m/1h]</span><p>Exclut temporairement un utilisateur du texte et du vocal.</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!ban @membre</span><p>Bannit définitivement un utilisateur avec confirmation de sécurité (oui/non).</p></div>
+                    <div class="command-card"><span class="command-badge badge-admin">!config</span><p>Ouvre le panneau de configuration du bot (préfixe, rôles, etc.).</p></div>
                 </div>
             </div>
         </div>
@@ -194,7 +251,15 @@
     <script>
         const SECRET_PIN = "06122023A";
 
-        // Vérification dynamique du code PIN en temps réel à la saisie
+        function togglePinVisibility() {
+            const pinInput = document.getElementById('admin-pin');
+            if (pinInput.type === "password") {
+                pinInput.type = "text";
+            } else {
+                pinInput.type = "password";
+            }
+        }
+
         function checkPin() {
             const pinInput = document.getElementById('admin-pin').value;
             const statusSpan = document.getElementById('pin-status');
@@ -205,12 +270,12 @@
                 statusSpan.innerHTML = "🔓 Statut : Accès Autorisé";
                 statusSpan.style.color = "var(--accent-green)";
                 lockNotice.style.display = "none";
-                adminControls.style.display = "block"; // On révèle les boutons !
+                adminControls.style.display = "block";
             } else {
                 statusSpan.innerHTML = "🔒 Statut : Verrouillé";
                 statusSpan.style.color = "var(--accent-red)";
                 lockNotice.style.display = "block";
-                adminControls.style.display = "none"; // On recache tout
+                adminControls.style.display = "none";
             }
         }
 
