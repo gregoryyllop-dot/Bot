@@ -46,9 +46,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/logs', (req, res) => {
     let totalMembers = 0;
-    try {
-        totalMembers = client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0);
-    } catch (e) { totalMembers = "Indisponible"; }
+    try { totalMembers = client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0); } catch (e) { totalMembers = "Indisponible"; }
     res.json({ commands: commandLogs, visitors: visitorLogs, memberCount: totalMembers });
 });
 
@@ -95,8 +93,8 @@ const serverConfig = {
     codesChannelId: "1514658424791502848", 
     waitingVoiceId: "1468303822731612348", 
     privateVoiceId: "1498498611275895005", 
-    adminTextId: "1515043230960324800",    
-    myDiscordId: "1463629608518815804" // 🔴 C'est corrigé ici avec ton bon ID !
+    adminTextId: "1515043230960324800",
+    staffRoleId: "1463629608518815804" // ID de ton rôle
 };
 
 client.on('ready', () => console.log(`🤖 Seimi Engine connecté : ${client.user.tag}`));
@@ -162,7 +160,7 @@ client.on('messageCreate', async (message) => {
         const targetMember = message.member;
 
         if (!targetMember.voice.channel || targetMember.voice.channel.id !== serverConfig.waitingVoiceId) {
-            return message.reply(`⚠️ Tu dois être connecté dans le salon vocal d'attente (<#${serverConfig.waitingVoiceId}>) pour faire cette commande !`);
+            return message.reply(`⚠️ Tu devez être connecté dans le salon vocal d'attente (<#${serverConfig.waitingVoiceId}>) pour faire cette commande !`);
         }
 
         try {
@@ -173,9 +171,9 @@ client.on('messageCreate', async (message) => {
 
             const adminChannel = await message.guild.channels.fetch(serverConfig.adminTextId);
             if (adminChannel) {
-                // Syntaxe <@ID> pour te mentionner directement toi personnellement
+                // Syntaxe <@&ID> pour faire un ping de RÔLE parfait !
                 await adminChannel.send({ 
-                    content: `🔔 <@${serverConfig.myDiscordId}> | **${targetMember.user.username}** demande l'accès au salon privé !`, 
+                    content: `🔔 <@&${serverConfig.staffRoleId}> | **${targetMember.user.username}** demande l'accès au salon privé !`, 
                     components: [row] 
                 });
 
