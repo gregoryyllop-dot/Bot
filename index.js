@@ -44,11 +44,9 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// On renvoie le compte total de membres avec l'API des logs
 app.get('/api/logs', (req, res) => {
     let totalMembers = 0;
     try {
-        // Calcule le total cumulé de membres sur les serveurs où se trouve le bot
         totalMembers = client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0);
     } catch (e) {
         totalMembers = "Indisponible";
@@ -57,7 +55,7 @@ app.get('/api/logs', (req, res) => {
     res.json({ 
         commands: commandLogs, 
         visitors: visitorLogs,
-        memberCount: totalMembers // Injecté directement !
+        memberCount: totalMembers
     });
 });
 
@@ -180,10 +178,37 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
     logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
 
+    // --- COMMANDE !CLEAR ---
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]); if (isNaN(amount) || amount < 1 || amount > 100) return;
         try { await message.channel.bulkDelete(amount, true); } catch (err) {}
+    }
+
+    // --- COMMANDE !MOOV ---
+    if (command === 'moov') {
+        // Sécurité : Seuls ceux qui ont la permission de déplacer des membres peuvent le faire
+        if (!message.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
+            return message.reply("❌ Tu n'as pas la permission requise (`Déplacer des membres`) pour faire cela.");
+        }
+
+        // On prend la première personne mentionnée dans le message
+        const targetMember = message.mentions.members.first();
+        if (!targetMember) return message.reply("⚠️ Utilisation correcte : `!moov @pseudo`");
+
+        // On vérifie s'il est bien connecté dans un salon vocal
+        if (!targetMember.voice.channel) {
+            return message.reply(`❌ **${targetMember.user.username}** n'est dans aucun salon vocal.`);
+        }
+
+        try {
+            // On le déplace de force vers l'ID du salon privé défini plus haut
+            await targetMember.voice.setChannel(serverConfig.privateVoiceId);
+            return message.reply(`🟢 **${targetMember.user.username}** a été déplacé.`);
+        } catch (err) {
+            console.error(err);
+            return message.reply("❌ Une erreur est survenue lors du déplacement vocal. Vérifie mes permissions.");
+        }
     }
 });
 
