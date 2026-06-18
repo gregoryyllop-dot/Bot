@@ -55,7 +55,6 @@
             gap: 10px;
         }
 
-        /* --- STYLES DU PANNEAU DE CONTROLE (DASHBOARD) --- */
         .dashboard-box {
             background-color: var(--card-bg);
             border-radius: 8px;
@@ -71,13 +70,15 @@
             flex-wrap: wrap;
         }
 
-        input, textarea, select {
+        input, textarea {
             background: #0f111a;
             border: 1px solid rgba(255,255,255,0.1);
             color: #fff;
             padding: 10px;
             border-radius: 4px;
             font-size: 0.95rem;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         input:focus, textarea:focus {
@@ -100,29 +101,19 @@
         .btn-danger { background-color: var(--accent-red); }
         .btn-danger:hover { background-color: #cc0000; }
 
-        /* --- AUTRES STYLES --- */
-        .commands-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+        /* Zone admin masquée par défaut */
+        #admin-controls {
+            display: none;
         }
 
-        .command-card {
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .command-badge {
-            display: inline-block;
-            background-color: var(--accent-blue);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-family: monospace;
+        #lock-notice {
+            color: var(--accent-orange);
             font-weight: bold;
-            margin-bottom: 10px;
+            padding: 15px;
+            background: rgba(255, 160, 0, 0.1);
+            border-radius: 4px;
+            text-align: center;
+            border: 1px dashed var(--accent-orange);
         }
 
         .logs-container {
@@ -151,32 +142,38 @@
     <div class="container">
         
         <div class="header">
-            <h1>⚙️ SEIMI - PANNEAU DE CONTRÔLE ACTIF</h1>
+            <h1>⚙️ SEIMI - PANNEAU DE CONTRÔLE</h1>
             <p>Pilote ton serveur Discord en temps réel depuis ton navigateur</p>
         </div>
 
         <h2 class="section-title">🎛️ Télécommande de Gestion</h2>
         <div class="dashboard-box">
             <div class="dash-row">
-                <input type="password" id="admin-pin" placeholder="🔑 Entrer le Code PIN Secret" style="flex: 1; max-width: 250px;">
-                <span id="pin-status" style="align-self: center; font-size: 0.9rem; color: var(--muted-text);">Statut : Verrouillé</span>
+                <input type="password" id="admin-pin" oninput="checkPin()" placeholder="🔑 Entrer le Code PIN Secret" style="max-width: 250px;">
+                <span id="pin-status" style="align-self: center; font-weight: bold; font-size: 0.95rem; color: var(--accent-red);">🔒 Statut : Verrouillé</span>
             </div>
 
-            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
-
-            <h3>📢 Lancer une annonce sur le serveur</h3>
-            <div class="dash-row" style="flex-direction: column; gap: 10px;">
-                <input type="text" id="ann-channel" placeholder="ID du salon Discord (ex: 1517108589490344036)">
-                <textarea id="ann-text" rows="3" placeholder="Écris ton annonce ici... Le bot l'enverra dans un superbe embed violet."></textarea>
-                <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'Annonce</button>
+            <div id="lock-notice">
+                ⚠️ Les commandes de la télécommande sont masquées. Entrez le code PIN secret pour déverrouiller les outils de modération.
             </div>
 
-            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+            <div id="admin-controls">
+                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
 
-            <h3>🧹 Nettoyage Rapide</h3>
-            <div class="dash-row">
-                <input type="text" id="clear-channel" placeholder="ID du salon à nettoyer">
-                <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
+                <h3>📢 Lancer une annonce sur le serveur</h3>
+                <div class="dash-row" style="flex-direction: column; gap: 10px;">
+                    <input type="text" id="ann-channel" placeholder="ID du salon Discord (ex: 1517108589490344036)">
+                    <textarea id="ann-text" rows="3" placeholder="Écris ton annonce ici... Le bot l'enverra dans un superbe embed violet."></textarea>
+                    <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'Annonce</button>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+
+                <h3>🧹 Nettoyage Rapide</h3>
+                <div class="dash-row" style="align-items: center;">
+                    <input type="text" id="clear-channel" placeholder="ID du salon à nettoyer" style="max-width: 300px;">
+                    <button class="btn-dash btn-danger" onclick="triggerClear()">Clear 20 messages</button>
+                </div>
             </div>
         </div>
 
@@ -192,16 +189,31 @@
             </div>
         </div>
 
-        <h2 class="section-title">📄 Rappel des Commandes</h2>
-        <div class="commands-grid">
-            <div class="command-card"><span class="command-badge">!config</span><p>Modifie les paramètres systèmes du bot.</p></div>
-            <div class="command-card"><span class="command-badge">!setupticket</span><p>Installe le panneau des tickets.</p></div>
-        </div>
-
     </div>
 
     <script>
-        // Fonctions pour communiquer avec l'API active du Bot
+        const SECRET_PIN = "06122023A";
+
+        // Vérification dynamique du code PIN en temps réel à la saisie
+        function checkPin() {
+            const pinInput = document.getElementById('admin-pin').value;
+            const statusSpan = document.getElementById('pin-status');
+            const lockNotice = document.getElementById('lock-notice');
+            const adminControls = document.getElementById('admin-controls');
+
+            if (pinInput === SECRET_PIN) {
+                statusSpan.innerHTML = "🔓 Statut : Accès Autorisé";
+                statusSpan.style.color = "var(--accent-green)";
+                lockNotice.style.display = "none";
+                adminControls.style.display = "block"; // On révèle les boutons !
+            } else {
+                statusSpan.innerHTML = "🔒 Statut : Verrouillé";
+                statusSpan.style.color = "var(--accent-red)";
+                lockNotice.style.display = "block";
+                adminControls.style.display = "none"; // On recache tout
+            }
+        }
+
         async function sendAnnonce() {
             const pin = document.getElementById('admin-pin').value;
             const channelId = document.getElementById('ann-channel').value;
