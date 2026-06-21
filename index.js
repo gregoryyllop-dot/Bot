@@ -94,7 +94,8 @@ const serverConfig = {
     waitingVoiceId: "1468303822731612348", 
     privateVoiceId: "1498498611275895005", 
     adminTextId: "1515043230960324800",
-    staffRoleId: "1463629608518815804" // ID de ton rôle
+    staffRoleId: "1463629608518815804",
+    ticketCategoryId: "1463929005395808329"
 };
 
 client.on('ready', () => console.log(`🤖 Seimi Engine connecté : ${client.user.tag}`));
@@ -114,6 +115,56 @@ client.on('interactionCreate', async (interaction) => {
         }], ephemeral: true });
     }
 
+    // --- CRÉATION DE TICKET ---
+    if (interaction.customId === 'btn_open_ticket') {
+        const guild = interaction.guild; 
+        const member = interaction.member;
+        const existing = guild.channels.cache.find(c => c.name === `📩-ticket-${member.user.username.toLowerCase()}`);
+        
+        if (existing) return interaction.reply({ content: `⚠️ Tu as déjà un ticket ouvert ici : ${existing}`, ephemeral: true });
+
+        await interaction.reply({ content: "⏳ Création de votre ticket en cours...", ephemeral: true });
+        
+        try {
+            const ticketChannel = await guild.channels.create({
+                name: `📩-ticket-${member.user.username}`, 
+                type: ChannelType.GuildText, 
+                parent: serverConfig.ticketCategoryId || null,
+                permissionOverwrites: [
+                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                    { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+                    { id: serverConfig.staffRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+                ],
+            });
+
+            const closeRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('btn_close_ticket').setLabel('🔒 Fermer le ticket').setStyle(ButtonStyle.Danger)
+            );
+
+            await ticketChannel.send({ 
+                content: `👋 Bienvenue dans ton ticket ${member} !\nLe <@&${serverConfig.staffRoleId}> va arriver pour t'aider.`, 
+                components: [closeRow] 
+            });
+
+            return interaction.editReply({ content: `✅ Ton ticket a été créé avec succès : ${ticketChannel}` });
+        } catch (e) { 
+            console.error(e);
+            return interaction.editReply({ content: "❌ Impossible de créer le ticket. Vérifie mes permissions et l'ID de la catégorie." }); 
+        }
+    }
+
+    // --- FERMETURE DE TICKET ---
+    if (interaction.customId === 'btn_close_ticket') {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
+            return interaction.reply({ content: "❌ Seul le staff peut fermer ce ticket.", ephemeral: true });
+        }
+        await interaction.reply({ content: "🔒 Archivage et suppression du ticket dans 5 secondes..." });
+        setTimeout(async () => { try { await interaction.channel.delete(); } catch(e) {} }, 5000);
+        return;
+    }
+
+    // --- GESTION DU SYSTÈME MOOV ---
     if (interaction.customId.startsWith('ma_') || interaction.customId.startsWith('md_')) {
         if (!interaction.member.permissions.has(PermissionFlagsBits.MoveMembers)) {
             return interaction.reply({ content: "❌ Tu n'as pas la permission de valider cette demande.", ephemeral: true });
@@ -150,17 +201,86 @@ client.on('messageCreate', async (message) => {
     const command = args.shift().toLowerCase();
     logCommand(message.author.tag, currentPrefix + command + (args.length ? ' ' + args.join(' ') : ''));
 
+    // --- COMMANDE !CLEAR ---
     if (command === 'clear') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
         let amount = parseInt(args[0]); if (isNaN(amount) || amount < 1 || amount > 100) return;
         try { await message.channel.bulkDelete(amount, true); } catch (err) {}
     }
 
+    // --- COMMANDE !BAN ---
+    if (command === 'ban') {
+        if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+            return message.reply("❌ Tu n'as pas la permission de bannir des membres.");
+        }
+        const target = message.mentions.members.first();
+        if (!target) return message.reply("⚠️ Utilisation : `!ban @pseudo [raison]`");
+        if (!target.bannable) return message.reply("❌ Je ne peux pas bannir ce membre (Rôle plus haut ou égal au mien).");
+
+        const reason = args.slice(1).join(" ") || "Aucune raison fournie";
+        try {
+            await target.ban({ reason: reason });
+            return message.reply(`✅ **${target.user.username}** a été banni définitivement. Raison : *${reason}*`);
+        } catch (e) { return message.reply("❌ Impossible de bannir ce membre."); }
+    }
+
+    // --- COMMANDE !KICK ---
+    if (command === 'kick') {
+        if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+            return message.reply("❌ Tu n'as pas la permission d'exclure des membres.");
+        }
+        const target = message.mentions.members.first();
+        if (!target) return message.reply("⚠️ Utilisation : `!kick @pseudo [raison]`");
+        if (!target.kickable) return message.reply("❌ Je ne peux pas exclure ce membre.");
+
+        const reason = args.slice(1).join(" ") || "Aucune raison fournie";
+        try {
+            await target.kick(reason);
+            return message.reply(`✅ **${target.user.username}** a été expulsé du serveur. Raison : *${reason}*`);
+        } catch (e) { return message.reply("❌ Impossible d'exclure ce membre."); }
+    }
+
+    // --- COMMANDE !MUTE (TIMEOUT) ---
+    if (command === 'mute') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            return message.reply("❌ Tu n'as pas la permission de mute des membres.");
+        }
+        const target = message.mentions.members.first();
+        if (!target) return message.reply("⚠️ Utilisation : `!mute @pseudo [minutes]`");
+        
+        let minutes = parseInt(args[1]);
+        if (isNaN(minutes) || minutes < 1) minutes = 10; // 10 minutes par défaut si non spécifié
+
+        try {
+            await target.timeout(minutes * 60 * 1000, "Mute demandé via la commande !mute");
+            return message.reply(`✅ **${target.user.username}** a été mute pendant **${minutes} minutes**.`);
+        } catch (e) { return message.reply("❌ Impossible de mute ce membre."); }
+    }
+
+    // --- COMMANDE !SETUP-TICKET ---
+    if (command === 'setup-ticket') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply("❌ Tu dois être administrateur pour configurer le système de ticket.");
+        }
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('btn_open_ticket').setLabel('📩 Ouvrir un ticket').setStyle(ButtonStyle.Primary)
+        );
+
+        await message.channel.send({
+            content: "📩 **Besoin d'aide ou d'un entretien ?**\nCliquez sur le bouton ci-dessous pour ouvrir un ticket privé avec le staff !",
+            components: [row]
+        });
+        
+        return message.delete().catch(() => null);
+    }
+
+    // --- COMMANDE !MOOV ---
     if (command === 'moov') {
         const targetMember = message.member;
 
         if (!targetMember.voice.channel || targetMember.voice.channel.id !== serverConfig.waitingVoiceId) {
-            return message.reply(`⚠️ Tu devez être connecté dans le salon vocal d'attente (<#${serverConfig.waitingVoiceId}>) pour faire cette commande !`);
+            return message.reply(`⚠️ Tu dois être connecté dans le salon vocal d'attente (<#${serverConfig.waitingVoiceId}>) pour faire cette commande !`);
         }
 
         try {
@@ -171,7 +291,6 @@ client.on('messageCreate', async (message) => {
 
             const adminChannel = await message.guild.channels.fetch(serverConfig.adminTextId);
             if (adminChannel) {
-                // Syntaxe <@&ID> pour faire un ping de RÔLE parfait !
                 await adminChannel.send({ 
                     content: `🔔 <@&${serverConfig.staffRoleId}> | **${targetMember.user.username}** demande l'accès au salon privé !`, 
                     components: [row] 
