@@ -24,7 +24,7 @@
             
             /* Couleurs pour l'équipe */
             --creator-neon: #ff007f;
-            --staff-neon: #00f0ff;
+            --co-creator-neon: #00f0ff;
         }
 
         body {
@@ -57,7 +57,7 @@
             margin-bottom: 25px;
         }
 
-        /* --- NOUVELLE SECTION : TEAM --- */
+        /* --- SECTION : TEAM RÉDUITE À 3 --- */
         .team-container {
             display: flex;
             justify-content: center;
@@ -74,7 +74,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            min-width: 160px;
+            min-width: 210px;
             backdrop-filter: blur(5px);
         }
 
@@ -91,16 +91,16 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
-        /* Bordures lumineuses pour différencier les rôles */
+        /* Styles d'avatars personnalisés */
         .member-creator .team-avatar {
             border: 2px solid var(--creator-neon);
             color: var(--creator-neon);
             text-shadow: 0 0 8px rgba(255, 0, 127, 0.5);
         }
         
-        .member-staff .team-avatar {
-            border: 2px solid var(--staff-neon);
-            color: var(--staff-neon);
+        .member-co-creator .team-avatar {
+            border: 2px solid var(--co-creator-neon);
+            color: var(--co-creator-neon);
             text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
         }
 
@@ -123,7 +123,7 @@
         }
         
         .member-creator .team-role { color: var(--creator-neon); }
-        .member-staff .team-role { color: var(--staff-neon); }
+        .member-co-creator .team-role { color: var(--co-creator-neon); }
 
         .member-counter {
             display: inline-block;
@@ -240,31 +240,24 @@
             
             <div class="team-container">
                 <div class="team-member member-creator">
-                    <div class="team-avatar">S</div>
-                    <div class="team-info">
-                        <span class="team-name">Seika</span>
-                        <span class="team-role">Créateur</span>
-                    </div>
-                </div>
-                <div class="team-member member-creator">
                     <div class="team-avatar">C</div>
                     <div class="team-info">
                         <span class="team-name">Core</span>
                         <span class="team-role">Créateur</span>
                     </div>
                 </div>
-                <div class="team-member member-creator">
-                    <div class="team-avatar">P</div>
-                    <div class="team-info">
-                        <span class="team-name">Punisher</span>
-                        <span class="team-role">Créateur</span>
-                    </div>
-                </div>
-                <div class="team-member member-staff">
+                <div class="team-member member-co-creator">
                     <div class="team-avatar">L</div>
                     <div class="team-info">
                         <span class="team-name">Linqui</span>
-                        <span class="team-role">Staff</span>
+                        <span class="team-role">Designer / Co-Créateur</span>
+                    </div>
+                </div>
+                <div class="team-member member-co-creator">
+                    <div class="team-avatar">P</div>
+                    <div class="team-info">
+                        <span class="team-name">Punisher</span>
+                        <span class="team-role">Idée / Co-Créateur</span>
                     </div>
                 </div>
             </div>
