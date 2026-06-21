@@ -15,6 +15,12 @@
             --btn-gradient: linear-gradient(135deg, #7b2cbf, #00f0ff);
             --danger-gradient: linear-gradient(135deg, #ff0055, #9b002c);
             --muted-text: #64748b;
+
+            /* Nouveaux styles de catégories */
+            --mod-neon: #00f592;
+            --mod-bg: rgba(0, 245, 146, 0.08);
+            --svc-neon: #00f0ff;
+            --svc-bg: rgba(0, 240, 255, 0.08);
         }
 
         body {
@@ -60,6 +66,19 @@
             padding-left: 15px;
             color: #fff;
             text-transform: uppercase;
+        }
+
+        /* Titres internes pour séparer les types de commandes */
+        .sub-category-title {
+            font-size: 1.1rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .dashboard-box {
@@ -120,9 +139,14 @@
 
         #admin-controls { display: none; }
 
-        .commands-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .commands-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px; }
         .command-card { background-color: var(--card-inner); border-radius: 14px; padding: 22px; border: 1px solid rgba(255, 255, 255, 0.01); }
-        .command-badge { display: inline-block; background: rgba(157, 78, 221, 0.12); border: 1px solid var(--accent-purple); color: #d8b4fe; padding: 5px 14px; border-radius: 8px; font-family: monospace; font-weight: bold; margin-bottom: 12px; }
+        
+        /* Styles distincts pour les badges */
+        .command-badge { display: inline-block; padding: 5px 14px; border-radius: 8px; font-family: monospace; font-weight: bold; margin-bottom: 12px; }
+        
+        .mod-card .command-badge { background: var(--mod-bg); border: 1px solid var(--mod-neon); color: #afffd6; }
+        .svc-card .command-badge { background: var(--svc-bg); border: 1px solid var(--svc-neon); color: #bdffff; }
 
         .logs-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
         .log-panel { flex: 1; min-width: 320px; background-color: var(--card-bg); border-radius: 16px; padding: 25px; }
@@ -182,15 +206,21 @@
                     </div>
                 </div>
 
-                <h3 style="color: #fff; margin-top: 40px; margin-bottom: 20px; font-size: 1.1rem; text-transform: uppercase;">📋 Index des commandes</h3>
+                <h3 style="color: #fff; margin-top: 40px; margin-bottom: 10px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px;">📋 Index des commandes</h3>
+                
+                <div class="sub-category-title" style="color: var(--mod-neon);">🛡️ Modération</div>
                 <div class="commands-grid">
-                    <div class="command-card"><span class="command-badge">!clear [1-100]</span><p>Nettoie le salon textuel ciblé sur Discord.</p></div>
-                    <div class="command-card"><span class="command-badge">!moov</span><p>Envoie une demande de transfert vocal au Staff.</p></div>
-                    <div class="command-card"><span class="command-badge">🎮 !codes / !roblox</span><p>Affiche la liste complète des codes promotionnels actifs.</p></div>
-                    <div class="command-card"><span class="command-badge">!setup-ticket</span><p>Génère l'encadré de création de tickets d'aide.</p></div>
-                    <div class="command-card"><span class="command-badge">!mute @membre</span><p>Exclusion textuelle et vocale temporaire (Timeout).</p></div>
-                    <div class="command-card"><span class="command-badge">!kick @membre</span><p>Expulse immédiatement un utilisateur du serveur.</p></div>
-                    <div class="command-card"><span class="command-badge">!ban @membre</span><p>Bannit définitivement un utilisateur.</p></div>
+                    <div class="command-card mod-card"><span class="command-badge">!clear [1-100]</span><p>Nettoie le salon textuel ciblé sur Discord.</p></div>
+                    <div class="command-card mod-card"><span class="command-badge">!mute @membre</span><p>Exclusion textuelle et vocale temporaire (Timeout).</p></div>
+                    <div class="command-card mod-card"><span class="command-badge">!kick @membre</span><p>Expulse immédiatement un utilisateur du serveur.</p></div>
+                    <div class="command-card mod-card"><span class="command-badge">!ban @membre</span><p>Bannit définitivement un utilisateur.</p></div>
+                </div>
+
+                <div class="sub-category-title" style="color: var(--svc-neon);">🕹️ Services & Utilitaires</div>
+                <div class="commands-grid">
+                    <div class="command-card svc-card"><span class="command-badge">🎮 !codes / !roblox</span><p>Affiche la liste complète des codes promotionnels actifs.</p></div>
+                    <div class="command-card svc-card"><span class="command-badge">!moov</span><p>Envoie une demande de transfert vocal au Staff.</p></div>
+                    <div class="command-card svc-card"><span class="command-badge">!setup-ticket</span><p>Génère l'encadré de création de tickets d'aide.</p></div>
                 </div>
             </div>
         </div>
@@ -276,10 +306,9 @@
                     document.getElementById('member-count').innerText = data.memberCount + " membres";
                 }
 
-                // Mise à jour automatique de la liste déroulante des salons
                 if (data.channels && data.channels.length > 0) {
                     const selectChannel = document.getElementById('clear-channel');
-                    const currentValue = selectChannel.value; // Sauvegarde la sélection actuelle
+                    const currentValue = selectChannel.value; 
                     
                     selectChannel.innerHTML = `<option value="">-- Choisir un salon textuel --</option>` + 
                         data.channels.map(c => `<option value="${c.id}"># ${c.name}</option>`).join('');
