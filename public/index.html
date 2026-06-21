@@ -47,7 +47,6 @@
             font-weight: 800;
         }
 
-        /* Petit badge stylé pour le compteur de membres */
         .member-counter {
             display: inline-block;
             background: rgba(69, 243, 255, 0.05);
@@ -171,6 +170,14 @@
             box-shadow: 0 5px 15px rgba(69, 243, 255, 0.3);
         }
 
+        .btn-dash:disabled {
+            background: #333 !important;
+            color: #666 !important;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
         .btn-danger {
             background: var(--danger-gradient);
             color: #fff;
@@ -254,7 +261,7 @@
                         <input type="password" id="admin-pin" placeholder="🔑 Code PIN Secret">
                         <button class="btn-eye" type="button" onclick="togglePinVisibility()" id="eye-icon">🙈</button>
                     </div>
-                    <button class="btn-dash" onclick="validatePin()">🔓 Valider le PIN</button>
+                    <button class="btn-dash" onclick="validatePin()" id="btn-validate">🔓 Valider le PIN</button>
                 </div>
                 <div id="status-text" style="font-weight: bold; font-size: 0.95rem; color: var(--muted-text);">Système verrouillé. Saisie requise.</div>
                 <div id="lock-notice"> Les modules d'action s'afficheront après validation.</div>
@@ -287,9 +294,11 @@
                 <h3 style="color: #fff; margin-top: 35px; margin-bottom: 15px; font-size: 1.1rem;">🛠️ Liste des commandes d'administration intégrées</h3>
                 <div class="commands-grid">
                     <div class="command-card"><span class="command-badge">!clear [1-100]</span><p style="margin:0; font-size:0.9rem;">Efface le flux de discussion actuel sur Discord.</p></div>
-                    <div class="command-card"><span class="command-badge">!mute @membre</span><p style="margin:0; font-size:0.9rem;">Met un utilisateur en sourdine textuelle et vocale.</p></div>
-                    <div class="command-card"><span class="command-badge">!ban @membre</span><p style="margin:0; font-size:0.9rem;">Bannit définitivement le fauteur de troubles.</p></div>
-                    <div class="command-card"><span class="command-badge">!config</span><p style="margin:0; font-size:0.9rem;">Configuration des modules du serveur.</p></div>
+                    <div class="command-card"><span class="command-badge">!moov</span><p style="margin:0; font-size:0.9rem;">Demande l'accès au salon privé depuis le vocal d'attente.</p></div>
+                    <div class="command-card"><span class="command-badge">!setup-ticket</span><p style="margin:0; font-size:0.9rem;">Configure le panneau de tickets d'aide dans un salon.</p></div>
+                    <div class="command-card"><span class="command-badge">!mute @membre [txt]</span><p style="margin:0; font-size:0.9rem;">Met un utilisateur en sourdine temporaire (Timeout).</p></div>
+                    <div class="command-card"><span class="command-badge">!kick @membre [raison]</span><p style="margin:0; font-size:0.9rem;">Exclut un joueur perturbateur du serveur.</p></div>
+                    <div class="command-card"><span class="command-badge">!ban @membre [raison]</span><p style="margin:0; font-size:0.9rem;">Bannit définitivement le fauteur de troubles.</p></div>
                 </div>
             </div>
         </div>
@@ -310,6 +319,7 @@
 
     <script>
         const SECRET_PIN = "06122023A";
+        const MOD_PIN = "Pupu1901"; 
         let validPinFound = ""; 
         let failuresCount = 0;
         let isLockedOut = false;
@@ -333,9 +343,10 @@
             const statusText = document.getElementById('status-text');
             const authArea = document.getElementById('auth-area');
             const adminControls = document.getElementById('admin-controls');
+            const btnValidate = document.getElementById('btn-validate');
             const value = pinInput.value;
 
-            if (value === SECRET_PIN) {
+            if (value === SECRET_PIN || value === MOD_PIN) {
                 validPinFound = value;
                 failuresCount = 0;
                 authArea.style.display = "none"; 
@@ -358,8 +369,10 @@
             const pinInput = document.getElementById('admin-pin');
             const statusText = document.getElementById('status-text');
             const lockNotice = document.getElementById('lock-notice');
+            const btnValidate = document.getElementById('btn-validate');
 
             pinInput.disabled = true;
+            btnValidate.disabled = true;
             statusText.innerHTML = "🚨 SÉCURITÉ : SYSTÈME VERROUILLÉ";
             statusText.style.color = "#ff4a4a";
             
@@ -375,6 +388,7 @@
                     isLockedOut = false;
                     failuresCount = 0;
                     pinInput.disabled = false;
+                    btnValidate.disabled = false;
                     lockNotice.innerHTML = "Les modules d'action s'afficheront après validation.";
                     statusText.innerHTML = "Système verrouillé. Saisie requise.";
                     statusText.style.color = "var(--muted-text)";
@@ -429,7 +443,6 @@
                 const response = await fetch('/api/logs');
                 const data = await response.json();
 
-                // On met à jour le compteur de membres en haut
                 if (data.memberCount !== undefined) {
                     document.getElementById('member-count').innerText = data.memberCount;
                 }
