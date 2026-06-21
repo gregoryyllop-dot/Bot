@@ -6,18 +6,21 @@
     <title>Seimi Bot - Dashboard & Modération</title>
     <style>
         :root {
-            --bg-color: #0b0c10;
-            --card-bg: #1f2833;
-            --text-color: #c5c6c7;
-            --accent-blue: #45f3ff;
-            --accent-purple: #8a2be2;
-            --btn-gradient: linear-gradient(135deg, #6f42c1, #45f3ff);
-            --danger-gradient: linear-gradient(135deg, #e63946, #9b2226);
-            --muted-text: #66788a;
+            --bg-color: #08090c;
+            --card-bg: #111319;
+            --card-inner: #161922;
+            --text-color: #e2e8f0;
+            --accent-purple: #9d4edd;
+            --accent-neon: #bc6c25;
+            --cyber-pink: #ff007f;
+            --cyber-blue: #00f0ff;
+            --btn-gradient: linear-gradient(135deg, #7b2cbf, #00f0ff);
+            --danger-gradient: linear-gradient(135deg, #ff0055, #9b002c);
+            --muted-text: #64748b;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
@@ -28,7 +31,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 950px;
             width: 100%;
         }
 
@@ -39,57 +42,68 @@
         }
 
         .header h1 {
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             background: var(--btn-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
-            font-weight: 800;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            filter: drop-shadow(0 2px 10px rgba(0, 240, 255, 0.2));
+        }
+
+        .header p {
+            color: var(--muted-text);
+            font-size: 1.1rem;
+            margin-top: 0;
         }
 
         .member-counter {
             display: inline-block;
-            background: rgba(69, 243, 255, 0.05);
-            border: 1px solid rgba(69, 243, 255, 0.2);
-            color: var(--accent-blue);
-            padding: 6px 16px;
-            border-radius: 20px;
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            color: var(--cyber-blue);
+            padding: 8px 20px;
+            border-radius: 30px;
             font-weight: bold;
             font-size: 0.95rem;
             margin-top: 5px;
-            box-shadow: 0 0 10px rgba(69, 243, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.05);
+            letter-spacing: 0.5px;
         }
 
         .section-title {
             font-size: 1.4rem;
             margin-top: 40px;
             margin-bottom: 25px;
-            border-bottom: 2px solid #1f2833;
-            padding-bottom: 10px;
+            border-left: 4px solid var(--cyber-blue);
+            padding-left: 15px;
             color: #fff;
             letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         .dashboard-box {
-            background-color: #12141c;
-            border-radius: 16px;
-            padding: 30px;
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 35px;
             border: 1px solid rgba(255, 255, 255, 0.03);
             margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
         }
 
         #auth-area {
-            background: rgba(255, 255, 255, 0.02);
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.01);
+            padding: 35px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.03);
             text-align: center;
         }
 
         .pin-wrapper {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             justify-content: center;
             align-items: center;
             margin-bottom: 15px;
@@ -98,13 +112,13 @@
 
         .pin-container {
             position: relative;
-            max-width: 260px;
+            max-width: 280px;
             width: 100%;
         }
 
         .btn-eye {
             position: absolute;
-            right: 12px;
+            right: 15px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
@@ -117,12 +131,11 @@
         .btn-eye:hover { color: #fff; }
 
         .admin-field-group {
-            background: #1a1d29;
+            background: var(--card-inner);
             padding: 25px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.02);
             margin-bottom: 25px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .admin-field-group h3 {
@@ -137,42 +150,44 @@
 
         input, textarea, select {
             background: #090a0f;
-            border: 1px solid rgba(255,255,255,0.08);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             color: #fff;
-            padding: 14px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: 10px;
             font-size: 0.95rem;
             width: 100%;
             box-sizing: border-box;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
         }
 
         input:focus, textarea:focus, select:focus {
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 8px rgba(69, 243, 255, 0.2);
+            border-color: var(--cyber-blue);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
             outline: none;
         }
 
         .btn-dash {
             background: var(--btn-gradient);
-            color: #0b0c10;
+            color: #fff;
             border: none;
-            padding: 14px 28px;
-            border-radius: 8px;
+            padding: 16px 32px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
             font-size: 0.95rem;
-            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
         }
 
         .btn-dash:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(69, 243, 255, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 240, 255, 0.35);
         }
 
         .btn-dash:disabled {
-            background: #333 !important;
-            color: #666 !important;
+            background: #222 !important;
+            color: #555 !important;
             cursor: not-allowed;
             transform: none !important;
             box-shadow: none !important;
@@ -184,40 +199,58 @@
         }
 
         .btn-danger:hover {
-            box-shadow: 0 5px 15px rgba(230, 57, 70, 0.4);
+            box-shadow: 0 8px 25px rgba(255, 0, 85, 0.4);
         }
 
         #admin-controls { display: none; }
 
         #lock-notice {
-            color: var(--text-color);
+            color: var(--muted-text);
             font-size: 0.9rem;
             margin-top: 10px;
         }
 
+        /* GRILLE DES COMMANDES STYLE GAMING */
         .commands-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
         }
 
         .command-card {
-            background-color: #1a1d29;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.02);
+            background-color: var(--card-inner);
+            border-radius: 14px;
+            padding: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.01);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .command-card:hover {
+            border-color: rgba(157, 78, 221, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
 
         .command-badge {
             display: inline-block;
-            background: rgba(138, 43, 226, 0.2);
+            background: rgba(157, 78, 221, 0.12);
             border: 1px solid var(--accent-purple);
             color: #d8b4fe;
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-family: monospace;
+            padding: 5px 14px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
             margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+
+        .command-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            line-height: 1.5;
         }
 
         .logs-container {
@@ -229,17 +262,24 @@
 
         .log-panel {
             flex: 1;
-            min-width: 300px;
-            background-color: #12141c;
-            border-radius: 12px;
-            padding: 20px;
+            min-width: 320px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
             border: 1px solid rgba(255, 255, 255, 0.02);
         }
 
+        .log-panel h3 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
         .log-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
-        .log-item { padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.03); font-size: 0.9rem; }
-        .log-time { color: var(--muted-text); font-size: 0.8rem; margin-right: 6px; }
-        .log-code { background: #090a0f; padding: 3px 8px; border-radius: 6px; color: var(--accent-blue); font-family: monospace; }
+        .log-item { padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.02); font-size: 0.9rem; line-height: 1.4; }
+        .log-time { color: var(--muted-text); font-size: 0.8rem; margin-right: 6px; font-family: monospace; }
+        .log-code { background: #050608; padding: 4px 8px; border-radius: 6px; color: var(--cyber-blue); font-family: monospace; border: 1px solid rgba(0, 240, 255, 0.1); }
     </style>
 </head>
 <body>
@@ -247,71 +287,72 @@
     <div class="container">
         
         <div class="header">
-            <h1>⚙️ SEIMI - STUDIO DE CONTRÔLE</h1>
-            <p>Pilote ton infrastructure Discord de manière sécurisée</p>
-            <div class="member-counter">👥 Membres sur le serveur : <span id="member-count">Chargement...</span></div>
+            <h1>⚡ SEIMI CONSOLE ⚡</h1>
+            <p>Gestion d'infrastructure et modération en temps réel</p>
+            <div class="member-counter">📊 Communauté : <span id="member-count">Connexion...</span></div>
         </div>
 
-        <h2 class="section-title">🎛️ Console d'Administration</h2>
+        <h2 class="section-title">🕹️ Panel de Contrôle</h2>
         <div class="dashboard-box">
             
             <div id="auth-area">
                 <div class="pin-wrapper">
                     <div class="pin-container">
-                        <input type="password" id="admin-pin" placeholder="🔑 Code PIN Secret">
+                        <input type="password" id="admin-pin" placeholder="Entrer un PIN d'accès">
                         <button class="btn-eye" type="button" onclick="togglePinVisibility()" id="eye-icon">🙈</button>
                     </div>
-                    <button class="btn-dash" onclick="validatePin()" id="btn-validate">🔓 Valider le PIN</button>
+                    <button class="btn-dash" onclick="validatePin()" id="btn-validate">Connexion</button>
                 </div>
-                <div id="status-text" style="font-weight: bold; font-size: 0.95rem; color: var(--muted-text);">Système verrouillé. Saisie requise.</div>
-                <div id="lock-notice"> Les modules d'action s'afficheront après validation.</div>
+                <div id="status-text" style="font-weight: bold; font-size: 0.95rem; color: var(--muted-text);">Authentification requise pour débloquer les modules.</div>
+                <div id="lock-notice">Sécurisé par double clé d'accès (Admin / Staff).</div>
             </div>
 
             <div id="admin-controls">
                 <div class="admin-field-group">
-                    <h3>📢 Publication d'Annonce Générale</h3>
+                    <h3>📢 Annonce Automatique (@everyone)</h3>
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <input type="text" id="ann-channel" value="1463930980845748431" placeholder="ID du salon Discord" style="color: var(--muted-text); font-family: monospace;" readonly>
-                        <textarea id="ann-text" rows="4" placeholder="Tape ton texte ici... Le bot pinguera automatiquement @everyone et écrira ton message brut."></textarea>
-                        <button class="btn-dash" onclick="sendAnnonce()">🚀 Diffuser le message et Ping</button>
+                        <textarea id="ann-text" rows="4" placeholder="Écris ton annonce ici... Le bot ajoutera automatiquement la notification générale @everyone au-dessus."></textarea>
+                        <button class="btn-dash" onclick="sendAnnonce()">🚀 Envoyer l'annonce</button>
                     </div>
                 </div>
 
                 <div class="admin-field-group">
-                    <h3>🧹 Purge Rapide de Salon</h3>
+                    <h3>🧹 Purge instantanée de messages</h3>
                     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <input type="text" id="clear-channel" placeholder="Coller l'ID du salon à nettoyer" style="flex: 2; font-family: monospace;">
-                        <select id="clear-amount" style="flex: 1; min-width: 120px;">
+                        <input type="text" id="clear-channel" placeholder="Coller l'ID du salon Discord" style="flex: 2; font-family: monospace;">
+                        <select id="clear-amount" style="flex: 1; min-width: 140px;">
                             <option value="10">10 messages</option>
                             <option value="20" selected>20 messages</option>
                             <option value="50">50 messages</option>
                             <option value="100">100 messages (Max)</option>
                         </select>
-                        <button class="btn-dash btn-danger" onclick="triggerClear()">Supprimer</button>
+                        <button class="btn-dash btn-danger" onclick="triggerClear()">Effacer</button>
                     </div>
                 </div>
 
-                <h3 style="color: #fff; margin-top: 35px; margin-bottom: 15px; font-size: 1.1rem;">🛠️ Liste des commandes d'administration intégrées</h3>
+                <h3 style="color: #fff; margin-top: 40px; margin-bottom: 20px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.5px;">📋 Index des commandes disponibles</h3>
                 <div class="commands-grid">
-                    <div class="command-card"><span class="command-badge">!clear [1-100]</span><p style="margin:0; font-size:0.9rem;">Efface le flux de discussion actuel sur Discord.</p></div>
-                    <div class="command-card"><span class="command-badge">!moov</span><p style="margin:0; font-size:0.9rem;">Demande l'accès au salon privé depuis le vocal d'attente.</p></div>
-                    <div class="command-card"><span class="command-badge">!setup-ticket</span><p style="margin:0; font-size:0.9rem;">Configure le panneau de tickets d'aide dans un salon.</p></div>
-                    <div class="command-card"><span class="command-badge">!mute @membre [txt]</span><p style="margin:0; font-size:0.9rem;">Met un utilisateur en sourdine temporaire (Timeout).</p></div>
-                    <div class="command-card"><span class="command-badge">!kick @membre [raison]</span><p style="margin:0; font-size:0.9rem;">Exclut un joueur perturbateur du serveur.</p></div>
-                    <div class="command-card"><span class="command-badge">!ban @membre [raison]</span><p style="margin:0; font-size:0.9rem;">Bannit définitivement le fauteur de troubles.</p></div>
+                    <div class="command-card"><span class="command-badge">!clear [1-100]</span><p>Nettoie instantanément le salon textuel ciblé sur Discord.</p></div>
+                    <div class="command-card"><span class="command-badge">!moov</span><p>Permet à un joueur en salon d'attente d'envoyer une demande de transfert vocal au Staff.</p></div>
+                    <div class="command-card"><span class="command-badge">🎮 !codes</span><p>Affiche la liste complète et mise à jour des codes promotionnels actifs sur Roblox.</p></div>
+                    <div class="command-card"><span class="command-badge">!setup-ticket</span><p>Génère l'encadré interactif pour permettre aux membres d'ouvrir un ticket d'aide.</p></div>
+                    <div class="command-card"><span class="command-badge">!mute @membre</span><p>Applique une exclusion textuelle et vocale temporaire (Timeout) sur le membre.</p></div>
+                    <div class="command-card"><span class="command-badge">!kick @membre</span><p>Expulse immédiatement un utilisateur problématique en dehors du serveur.</p></div>
+                    <div class="command-card"><span class="command-badge">!ban @membre</span><p>Bannit définitivement un utilisateur avec blocage d'adresse IP.</p></div>
                 </div>
             </div>
         </div>
 
-        <h2 class="section-title">📊 Flux d'Activité en Direct</h2>
+        <h2 class="section-title">📊 Flux Réseau & Télémétrie</h2>
         <div class="logs-container">
             <div class="log-panel">
-                <h3>💬 Requêtes Discord Récentes</h3>
-                <ul id="command-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">✍️ En attente d'activité...</li></ul>
+                <h3>💬 Dernières Actions Discord</h3>
+                <ul id="command-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">Écoute du flux Discord active...</li></ul>
             </div>
             <div class="log-panel">
-                <h3>🌐 Accès Serveur</h3>
-                <ul id="visitor-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">🔍 Diagnostic en cours...</li></ul>
+                <h3>🌐 Accès Console Web</h3>
+                <ul id="visitor-list" class="log-list"><li class="log-item" style="color: var(--muted-text);">Analyse des requêtes http...</li></ul>
             </div>
         </div>
 
@@ -343,7 +384,6 @@
             const statusText = document.getElementById('status-text');
             const authArea = document.getElementById('auth-area');
             const adminControls = document.getElementById('admin-controls');
-            const btnValidate = document.getElementById('btn-validate');
             const value = pinInput.value;
 
             if (value === SECRET_PIN || value === MOD_PIN) {
@@ -359,7 +399,7 @@
                     triggerLockout();
                 } else {
                     statusText.innerHTML = `❌ Code incorrect (${failuresCount}/3 tentatives)`;
-                    statusText.style.color = "#ff4a4a";
+                    statusText.style.color = "#ff3b30";
                 }
             }
         }
@@ -373,15 +413,15 @@
 
             pinInput.disabled = true;
             btnValidate.disabled = true;
-            statusText.innerHTML = "🚨 SÉCURITÉ : SYSTÈME VERROUILLÉ";
-            statusText.style.color = "#ff4a4a";
+            statusText.innerHTML = `🚨 SÉCURITÉ : CONSOLE VERROUILLÉE`;
+            statusText.style.color = "#ff3b30";
             
             let timeLeft = 300; 
             const interval = setInterval(() => {
                 timeLeft--;
                 let mins = Math.floor(timeLeft / 60);
                 let secs = timeLeft % 60;
-                lockNotice.innerHTML = `Bloqué pour abus. Réessai possible dans ${mins}m ${secs < 10 ? '0' + secs : secs}s.`;
+                lockNotice.innerHTML = `Trop d'échecs. Verrouillage temporaire : ${mins}m ${secs < 10 ? '0' + secs : secs}s.`;
                 
                 if (timeLeft <= 0) {
                     clearInterval(interval);
@@ -389,8 +429,8 @@
                     failuresCount = 0;
                     pinInput.disabled = false;
                     btnValidate.disabled = false;
-                    lockNotice.innerHTML = "Les modules d'action s'afficheront après validation.";
-                    statusText.innerHTML = "Système verrouillé. Saisie requise.";
+                    lockNotice.innerHTML = "Sécurisé par double clé d'accès (Admin / Staff).";
+                    statusText.innerHTML = "Authentification requise pour débloquer les modules.";
                     statusText.style.color = "var(--muted-text)";
                 }
             }, 1000);
@@ -400,7 +440,7 @@
             const channelId = document.getElementById('ann-channel').value;
             const text = document.getElementById('ann-text').value;
 
-            if(!validPinFound || !text) return alert("Veuillez écrire le corps du message.");
+            if(!validPinFound || !text) return alert("Veuillez écrire le contenu du message.");
 
             const res = await fetch('/api/admin/annonce', {
                 method: 'POST',
@@ -416,7 +456,7 @@
             const channelId = document.getElementById('clear-channel').value;
             const amount = document.getElementById('clear-amount').value;
 
-            if(!validPinFound || !channelId) return alert("Indiquez l'ID du salon à nettoyer.");
+            if(!validPinFound || !channelId) return alert("Indiquez l'ID du salon à vider.");
 
             const res = await fetch('/api/admin/clear', {
                 method: 'POST',
@@ -429,13 +469,13 @@
         }
 
         function parseUserAgent(ua) {
-            if (!ua) return '❓ Inconnu';
+            if (!ua) return '❓ Appareil Inconnu';
             const uaLower = ua.toLowerCase();
-            if (uaLower.includes('cron-job')) return '🛠️ Service : Cron-Job';
-            if (uaLower.includes('uptimerobot')) return '🤖 Service : UptimeRobot';
-            if (uaLower.includes('windows')) return '💻 Appareil : PC (Windows)';
-            if (uaLower.includes('iphone') || uaLower.includes('android')) return '📱 Smartphone';
-            return '🌐 Navigateur';
+            if (uaLower.includes('cron-job')) return '⚙️ Moniteur : Cron-Job';
+            if (uaLower.includes('uptimerobot')) return '🤖 Moniteur : UptimeRobot';
+            if (uaLower.includes('windows')) return '💻 Plateforme : PC Windows';
+            if (uaLower.includes('iphone') || uaLower.includes('android')) return '📱 Plateforme : Mobile';
+            return '🌐 Navigateur Web';
         }
 
         async function refreshLogs() {
@@ -444,7 +484,7 @@
                 const data = await response.json();
 
                 if (data.memberCount !== undefined) {
-                    document.getElementById('member-count').innerText = data.memberCount;
+                    document.getElementById('member-count').innerText = data.memberCount + " membres";
                 }
 
                 const cmdList = document.getElementById('command-list');
@@ -458,7 +498,7 @@
                 if (data.visitors && data.visitors.length > 0) {
                     visitorList.innerHTML = data.visitors.map(v => {
                         const isHumain = v.type.includes('HUMAIN');
-                        const badgeColor = isHumain ? '#45f3ff' : '#8a2be2';
+                        const badgeColor = isHumain ? 'var(--cyber-blue)' : 'var(--accent-purple)';
                         return `<li class="log-item"><span class="log-time">[${v.time}]</span> <span style="color: ${badgeColor}; font-weight: bold;">${v.type}</span><br><small style="color: var(--muted-text);">${parseUserAgent(v.device)}</small></li>`;
                     }).join('');
                 }
