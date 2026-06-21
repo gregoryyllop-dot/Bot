@@ -170,8 +170,16 @@ client.on('interactionCreate', async (interaction) => {
                 new ButtonBuilder().setCustomId('btn_close_ticket').setLabel('🔒 Fermer le ticket').setStyle(ButtonStyle.Danger)
             );
 
+            // Liste des rôles Modos à pinger à l'ouverture du ticket
+            const rolesToPing = [
+                '1463629608518815804', // Fondateur
+                '1465006719762567320', // Le fatigué
+                '1463630196447117372'  // Modo punisher
+            ];
+            const pingString = rolesToPing.map(roleId => `<@&${roleId}>`).join(' ');
+
             await ticketChannel.send({ 
-                content: `👋 Bienvenue dans ton ticket ${member} !\nLe staff va arriver pour t'aider.`, 
+                content: `👋 Bienvenue dans ton ticket ${member} !\n🔔 Notification Staff : ${pingString}`, 
                 components: [closeRow] 
             });
 
