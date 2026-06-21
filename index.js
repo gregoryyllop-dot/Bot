@@ -18,7 +18,15 @@ app.use(express.json());
 
 const commandLogs = [];
 const visitorLogs = [];
+
+// Clés d'accès sécurisées (Propriétaire & Modérateur)
 const ADMIN_PIN = "06122023A"; 
+const MOD_PIN = "Pupu1901";
+
+// Vérification de la validité du PIN fourni
+function isValidPin(pin) {
+    return pin === ADMIN_PIN || pin === MOD_PIN;
+}
 
 function logCommand(user, command) {
     const time = new Date().toLocaleTimeString('fr-FR', { 
@@ -52,25 +60,25 @@ app.get('/api/logs', (req, res) => {
 
 app.post('/api/admin/annonce', async (req, res) => {
     const { pin, channelId, text } = req.body;
-    if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
+    if (!isValidPin(pin)) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
     try {
         const channel = await client.channels.fetch(channelId);
         if (!channel) return res.json({ success: false, message: "❌ Salon introuvable." });
         await channel.send({ content: `📢 @everyone\n\n${text}` });
-        logCommand("Dashboard Web", `Annonce brute diffusée dans <#${channelId}>`);
+        logCommand(pin === ADMIN_PIN ? "Admin Web" : "Modérateur Web", `Annonce brute diffusée dans <#${channelId}>`);
         return res.json({ success: true, message: "✅ Annonce brute diffusée !" });
     } catch (err) { return res.json({ success: false, message: `❌ Erreur : ${err.message}` }); }
 });
 
 app.post('/api/admin/clear', async (req, res) => {
     const { pin, channelId, amount } = req.body;
-    if (pin !== ADMIN_PIN) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
+    if (!isValidPin(pin)) return res.status(403).json({ success: false, message: "❌ PIN invalide." });
     const limit = amount && amount <= 100 ? amount : 20;
     try {
         const channel = await client.channels.fetch(channelId);
         if (!channel || !channel.isTextBased()) return res.json({ success: false, message: "❌ Salon invalide." });
         await channel.bulkDelete(limit, true);
-        logCommand("Dashboard Web", `Purge dans <#${channelId}>`);
+        logCommand(pin === ADMIN_PIN ? "Admin Web" : "Modérateur Web", `Purge dans <#${channelId}>`);
         return res.json({ success: true, message: `✅ Flux nettoyé !` });
     } catch (err) { return res.json({ success: false, message: `❌ Erreur : ${err.message}` }); }
 });
@@ -249,7 +257,7 @@ client.on('messageCreate', async (message) => {
         if (!target) return message.reply("⚠️ Utilisation : `!mute @pseudo [minutes]`");
         
         let minutes = parseInt(args[1]);
-        if (isNaN(minutes) || minutes < 1) minutes = 10; // 10 minutes par défaut si non spécifié
+        if (isNaN(minutes) || minutes < 1) minutes = 10;
 
         try {
             await target.timeout(minutes * 60 * 1000, "Mute demandé via la commande !mute");
